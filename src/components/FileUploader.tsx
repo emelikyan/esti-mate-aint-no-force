@@ -75,15 +75,15 @@ export default function FileUploader({
               <FileText className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="font-medium text-slate-900">{selectedFile.name}</p>
-              <p className="text-sm text-slate-500">
+              <p className="font-medium text-gray-900">{selectedFile.name}</p>
+              <p className="text-sm text-gray-500">
                 {formatSize(selectedFile.size)}
               </p>
             </div>
           </div>
           <button
             onClick={onRemove}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -103,18 +103,18 @@ export default function FileUploader({
         onDrop={handleDrop}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors ${
           isDragging
-            ? "border-blue-400 bg-blue-50"
-            : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
+            ? "border-indigo-400 bg-indigo-50"
+            : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
         }`}
       >
         <Upload
-          className={`mb-3 h-8 w-8 ${isDragging ? "text-blue-500" : "text-slate-400"}`}
+          className={`mb-3 h-8 w-8 ${isDragging ? "text-indigo-500" : "text-gray-400"}`}
         />
-        <p className="text-sm font-medium text-slate-700">
+        <p className="text-sm font-medium text-gray-700">
           Drag and drop your file here, or{" "}
-          <span className="text-blue-600">browse</span>
+          <span className="text-indigo-600">browse</span>
         </p>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-gray-500">
           PDF, DOCX, or TXT up to 10MB
         </p>
         <input

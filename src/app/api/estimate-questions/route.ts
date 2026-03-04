@@ -22,7 +22,15 @@ export async function POST(request: NextRequest) {
     let estimation = await generateEstimation(prompt);
 
     // Step 2: Agentic loop — review and add confidence scores
-    estimation = await addConfidenceScores(estimation);
+    estimation = await addConfidenceScores(estimation, body.practices);
+
+    // Debug: log timeline/costBreakdown phase matching
+    const timelinePhases = estimation.timeline.map(t => t.phase);
+    const costPhases = [...new Set(estimation.costBreakdown.map(c => c.phase))];
+    console.log("[DEBUG] Timeline phases:", timelinePhases);
+    console.log("[DEBUG] Cost breakdown phases:", costPhases);
+    console.log("[DEBUG] Timeline items:", estimation.timeline.map(t => `${t.phase} W${t.startWeek}-W${t.endWeek}`));
+    console.log("[DEBUG] Confidence scores:", estimation.costBreakdown.map((c, i) => `[${i}] ${c.confidence}`).join(", "));
 
     return NextResponse.json({ estimation });
   } catch (error) {

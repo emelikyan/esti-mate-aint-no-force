@@ -1,10 +1,34 @@
+export interface RoleBreakdown {
+  role: "CS" | "Dev" | "AR" | "PM" | "QA";
+  hours: number;
+  rate: number;
+  cost: number;
+}
+
+export interface CostItem {
+  phase: "Blueprint" | "Implementation" | "UAT & Go-Live";
+  category: string;
+  description: string;
+  roles: RoleBreakdown[];
+  totalHours: number;
+  totalMD: number;
+  totalCost: number;
+  confidence: number;
+  optimisticHours?: number;
+  pessimisticHours?: number;
+  confirmed?: boolean;
+  userConfidence?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface Estimation {
   projectName: string;
   summary: string;
   phases: Phase[];
   timeline: TimelineItem[];
   costBreakdown: CostItem[];
-  totalCost: { min: number; max: number; currency: string };
+  totalCost: { amount: number; currency: string };
   team: TeamRole[];
   risks: Risk[];
   deliverables: Deliverable[];
@@ -27,16 +51,6 @@ export interface TimelineItem {
   startDate?: string;
   endDate?: string;
   milestones: string[];
-}
-
-export interface CostItem {
-  phase: "Blueprint" | "Implementation" | "UAT & Go-Live";
-  category: string;
-  description: string;
-  estimatedHours: { min: number; max: number };
-  hourlyRate: number;
-  totalCost: { min: number; max: number };
-  confidence: number;
 }
 
 export interface TeamRole {
@@ -68,6 +82,15 @@ export interface CustomComponent {
   estimatedHours: number;
 }
 
+export interface RateConfig {
+  currency: string;
+  csRate: number;
+  devRate: number;
+  arRate: number;
+  pmPercent: number;
+  qaPercent: number;
+}
+
 export interface QuestionnaireAnswers {
   projectType: string;
   techStack: string[];
@@ -82,6 +105,7 @@ export interface QuestionnaireAnswers {
   budgetRange: string;
   teamPreferences: string;
   additionalNotes: string;
+  rateConfig: RateConfig;
 }
 
 export interface PracticeEstimation {
@@ -94,4 +118,24 @@ export interface PracticeEstimation {
   teamSize: number;
   techStack: string;
   lessonsLearned: string;
+  // Man-days (raw values from CSV)
+  csMD?: number;
+  devMD?: number;
+  arMD?: number;
+  pmMD?: number;
+  qaMD?: number;
+  totalMD?: number;
+  // Hours (converted: MD * HOURS_PER_MD)
+  csHours?: number;
+  devHours?: number;
+  arHours?: number;
+  pmHours?: number;
+  qaHours?: number;
+  csRate?: number;
+  devRate?: number;
+  arRate?: number;
+  pmRate?: number;
+  qaRate?: number;
+  currency?: string;
+  fullEstimation?: string;
 }

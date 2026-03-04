@@ -21,10 +21,10 @@ export default function StepIndicator({
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
                 i < currentStep
-                  ? "bg-blue-600 text-white"
+                  ? "bg-indigo-600 text-white"
                   : i === currentStep
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-200 text-slate-500"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-200 text-gray-500"
               }`}
             >
               {i < currentStep ? (
@@ -35,7 +35,7 @@ export default function StepIndicator({
             </div>
             <span
               className={`mt-1 hidden text-xs sm:block ${
-                i <= currentStep ? "text-blue-600 font-medium" : "text-slate-400"
+                i <= currentStep ? "text-indigo-600 font-medium" : "text-gray-400"
               }`}
             >
               {stepLabels[i]}
@@ -44,7 +44,7 @@ export default function StepIndicator({
           {i < totalSteps - 1 && (
             <div
               className={`mx-2 h-0.5 w-8 sm:w-16 ${
-                i < currentStep ? "bg-blue-600" : "bg-slate-200"
+                i < currentStep ? "bg-indigo-600" : "bg-gray-200"
               }`}
             />
           )}

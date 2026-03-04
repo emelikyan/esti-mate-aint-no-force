@@ -30,18 +30,18 @@ export default function LoadingEstimation() {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-3 w-3 animate-bounce rounded-full bg-blue-600"
+            className="h-3 w-3 animate-bounce rounded-full bg-indigo-600"
             style={{ animationDelay: `${i * 0.15}s` }}
           />
         ))}
       </div>
-      <p className="text-lg font-medium text-slate-900">
+      <p className="text-lg font-medium text-gray-900">
         Generating Your Estimation
       </p>
-      <p className="mt-2 text-sm text-slate-500 transition-opacity duration-300">
+      <p className="mt-2 text-sm text-gray-500 transition-opacity duration-300">
         {MESSAGES[messageIndex]}
       </p>
-      <p className="mt-6 text-xs text-slate-400">
+      <p className="mt-6 text-xs text-gray-400">
         This typically takes 30-60 seconds (includes confidence review)
       </p>
     </div>

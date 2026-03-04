@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { QuestionnaireAnswers } from "@/lib/types";
+import { QuestionnaireAnswers, RateConfig } from "@/lib/types";
 import {
   PROJECT_TYPES,
   TECH_STACK_OPTIONS,
   TIMELINE_OPTIONS,
   BUDGET_OPTIONS,
+  CURRENCY_OPTIONS,
+  ROLE_LABELS,
   getEstimatedEndDate,
 } from "@/lib/constants";
 import { ChevronDown } from "lucide-react";
@@ -14,7 +16,7 @@ import { ChevronDown } from "lucide-react";
 interface QuestionnaireFormProps {
   step: number;
   answers: QuestionnaireAnswers;
-  onChange: (field: keyof QuestionnaireAnswers, value: string | string[]) => void;
+  onChange: (field: keyof QuestionnaireAnswers, value: string | string[] | RateConfig) => void;
 }
 
 const inputClass =
@@ -83,6 +85,129 @@ function TechStackMultiSelect({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function RateConfigStep({
+  rateConfig,
+  onChange,
+}: {
+  rateConfig: RateConfig;
+  onChange: (config: RateConfig) => void;
+}) {
+  const update = (field: keyof RateConfig, value: string | number) => {
+    onChange({ ...rateConfig, [field]: value });
+  };
+
+  const smallInputClass =
+    "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors text-sm";
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <label className={labelClass}>Currency</label>
+        <select
+          value={rateConfig.currency}
+          onChange={(e) => update("currency", e.target.value)}
+          className={inputClass}
+        >
+          {CURRENCY_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-slate-700 mb-3">
+          Hourly Rates ({rateConfig.currency})
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(["CS", "Dev", "AR"] as const).map((role) => {
+            const field = `${role.toLowerCase().replace("dev", "dev")}Rate` as keyof RateConfig;
+            const rateField =
+              role === "CS" ? "csRate" : role === "Dev" ? "devRate" : "arRate";
+            return (
+              <div key={role}>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  {ROLE_LABELS[role]} ({role})
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    value={rateConfig[rateField] || ""}
+                    onChange={(e) =>
+                      update(rateField, parseFloat(e.target.value) || 0)
+                    }
+                    placeholder="0"
+                    className={smallInputClass}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                    /hr
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-slate-700 mb-3">
+          PM & QA Percentages
+        </p>
+        <p className="text-xs text-slate-500 mb-3">
+          Calculated as a percentage of combined CS + Dev + AR hours per line
+          item.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              {ROLE_LABELS.PM} (PM %)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={rateConfig.pmPercent || ""}
+                onChange={(e) =>
+                  update("pmPercent", parseFloat(e.target.value) || 0)
+                }
+                placeholder="15"
+                className={smallInputClass}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                %
+              </span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              {ROLE_LABELS.QA} (QA %)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={rateConfig.qaPercent || ""}
+                onChange={(e) =>
+                  update("qaPercent", parseFloat(e.target.value) || 0)
+                }
+                placeholder="20"
+                className={smallInputClass}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                %
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -183,7 +308,7 @@ export default function QuestionnaireForm({
         </div>
       );
 
-    case 3:
+    case 3: {
       const estimatedEnd = getEstimatedEndDate(answers.startDate, answers.timeline);
       return (
         <div className="space-y-6">
@@ -236,6 +361,7 @@ export default function QuestionnaireForm({
           )}
         </div>
       );
+    }
 
     case 4:
       return (
@@ -276,6 +402,14 @@ export default function QuestionnaireForm({
             />
           </div>
         </div>
+      );
+
+    case 5:
+      return (
+        <RateConfigStep
+          rateConfig={answers.rateConfig}
+          onChange={(config) => onChange("rateConfig", config)}
+        />
       );
 
     default:

@@ -1,3 +1,5 @@
+import { RateConfig } from "./types";
+
 export const QUESTIONNAIRE_STEPS = [
   {
     id: "basics",
@@ -23,6 +25,11 @@ export const QUESTIONNAIRE_STEPS = [
     id: "budget",
     title: "Budget & Team",
     fields: ["budgetRange", "teamPreferences", "additionalNotes"],
+  },
+  {
+    id: "rates",
+    title: "Rates & Configuration",
+    fields: ["rateConfig"],
   },
 ];
 
@@ -89,6 +96,29 @@ export const TECH_STACK_OPTIONS = [
   "Tailwind CSS",
   "Other",
 ];
+
+export const HOURS_PER_MD = 8;
+export const DEFAULT_PM_PERCENT = 15;
+export const DEFAULT_QA_PERCENT = 20;
+
+export const DEFAULT_RATES: RateConfig = {
+  currency: "USD",
+  csRate: 150,
+  devRate: 130,
+  arRate: 175,
+  pmPercent: 15,
+  qaPercent: 20,
+};
+
+export const CURRENCY_OPTIONS = ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"];
+
+export const ROLE_LABELS: Record<string, string> = {
+  CS: "Consultant",
+  Dev: "Developer",
+  AR: "Architect",
+  PM: "Project Manager",
+  QA: "QA Engineer",
+};
 
 /** Approximate duration in months for timeline option; null if flexible/unsure */
 export function getTimelineDurationMonths(timeline: string): number | null {

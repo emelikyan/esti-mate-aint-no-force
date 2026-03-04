@@ -7,8 +7,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
 import LoadingEstimation from "@/components/LoadingEstimation";
-import { QUESTIONNAIRE_STEPS } from "@/lib/constants";
-import { QuestionnaireAnswers, PracticeEstimation } from "@/lib/types";
+import { QUESTIONNAIRE_STEPS, DEFAULT_RATES } from "@/lib/constants";
+import { QuestionnaireAnswers, PracticeEstimation, RateConfig } from "@/lib/types";
 
 const INITIAL_ANSWERS: QuestionnaireAnswers = {
   projectType: "",
@@ -24,6 +24,7 @@ const INITIAL_ANSWERS: QuestionnaireAnswers = {
   budgetRange: "",
   teamPreferences: "",
   additionalNotes: "",
+  rateConfig: { ...DEFAULT_RATES },
 };
 
 export default function QuestionnairePage() {
@@ -43,11 +44,32 @@ export default function QuestionnairePage() {
         // ignore
       }
     }
+
+    // Load practice-derived rates if available
+    const practiceRates = localStorage.getItem("practice-rates");
+    if (practiceRates) {
+      try {
+        const derived = JSON.parse(practiceRates) as { pmPercent: number; qaPercent: number };
+        setAnswers((prev) => ({
+          ...prev,
+          rateConfig: {
+            ...prev.rateConfig,
+            pmPercent: derived.pmPercent,
+            qaPercent: derived.qaPercent,
+          },
+        }));
+      } catch {
+        // ignore
+      }
+    }
   }, []);
 
   const isLastStep = currentStep === QUESTIONNAIRE_STEPS.length - 1;
 
-  const handleChange = (field: keyof QuestionnaireAnswers, value: string | string[]) => {
+  const handleChange = (
+    field: keyof QuestionnaireAnswers,
+    value: string | string[] | RateConfig
+  ) => {
     setAnswers((prev) => ({ ...prev, [field]: value }));
   };
 

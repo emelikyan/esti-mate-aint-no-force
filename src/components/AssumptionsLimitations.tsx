@@ -15,14 +15,14 @@ export default function AssumptionsLimitations({
 
   return (
     <section>
-      <h3 className="text-xl font-semibold text-slate-900">
+      <h3 className="text-xl font-semibold text-gray-900">
         Assumptions & Limitations
       </h3>
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         {assumptions.length > 0 && (
           <div>
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
               <Lightbulb className="h-4 w-4 text-amber-500" />
               Assumptions
             </div>
@@ -30,7 +30,7 @@ export default function AssumptionsLimitations({
               {assumptions.map((a, i) => (
                 <li
                   key={i}
-                  className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-slate-700"
+                  className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-gray-700"
                 >
                   {a}
                 </li>
@@ -41,7 +41,7 @@ export default function AssumptionsLimitations({
 
         {limitations.length > 0 && (
           <div>
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
               Potential Limitations
             </div>
@@ -49,7 +49,7 @@ export default function AssumptionsLimitations({
               {limitations.map((l, i) => (
                 <li
                   key={i}
-                  className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-sm text-slate-700"
+                  className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-sm text-gray-700"
                 >
                   {l}
                 </li>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseDocument } from "@/lib/parse-document";
 import { buildRfpPrompt } from "@/lib/prompts";
 import { generateEstimation, addConfidenceScores } from "@/lib/claude";
-import { PracticeEstimation } from "@/lib/types";
+import { PracticeEstimation, RateConfig } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
     const startDate = formData.get("startDate") as string | null;
     const practicesJson = formData.get("practices") as string | null;
+    const rateConfigJson = formData.get("rateConfig") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -50,16 +51,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let rateConfig: RateConfig | undefined;
+    if (rateConfigJson) {
+      try {
+        rateConfig = JSON.parse(rateConfigJson);
+      } catch {
+        // ignore parse errors
+      }
+    }
+
     // Step 1: Generate estimation
     const prompt = buildRfpPrompt(
       truncatedText,
       startDate || undefined,
-      practices
+      practices,
+      rateConfig
     );
     let estimation = await generateEstimation(prompt);
 
     // Step 2: Agentic loop — review and add confidence scores
-    estimation = await addConfidenceScores(estimation);
+    estimation = await addConfidenceScores(estimation, practices);
+
+    // Debug: log timeline/costBreakdown phase matching
+    const timelinePhases = estimation.timeline.map(t => t.phase);
+    const costPhases = [...new Set(estimation.costBreakdown.map(c => c.phase))];
+    console.log("[DEBUG] Timeline phases:", timelinePhases);
+    console.log("[DEBUG] Cost breakdown phases:", costPhases);
+    console.log("[DEBUG] Timeline items:", estimation.timeline.map(t => `${t.phase} W${t.startWeek}-W${t.endWeek}`));
+    console.log("[DEBUG] Confidence scores:", estimation.costBreakdown.map((c, i) => `[${i}] ${c.confidence}`).join(", "));
 
     return NextResponse.json({ estimation });
   } catch (error) {
