@@ -182,7 +182,7 @@ export default function ResourcePlan({ estimation, onUpdateEstimation }: Resourc
                     key={i}
                     className={`py-2 px-2 text-center font-medium ${cellColor(h)}`}
                   >
-                    {h === 0 ? "" : h.toFixed(1)}
+                    {h.toFixed(1)}
                   </td>
                 ))}
               </tr>
@@ -198,7 +198,7 @@ export default function ResourcePlan({ estimation, onUpdateEstimation }: Resourc
                   key={i}
                   className={`py-2 px-2 text-center ${cellColor(t)}`}
                 >
-                  {t === 0 ? "" : t.toFixed(1)}
+                  {t.toFixed(1)}
                 </td>
               ))}
             </tr>
