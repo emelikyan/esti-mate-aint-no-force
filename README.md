@@ -12,7 +12,6 @@ In your project root, run:
 
 npm install next react react-dom
 
-Create a .env.local file
 In the root folder of your project, create a file named .env.local and add your API credentials:
 
 ANTHROPIC_API_KEY=your_api_key_here
