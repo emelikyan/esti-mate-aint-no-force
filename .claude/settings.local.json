@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(curl:*)",
+      "Bash(xcode-select:*)",
+      "Bash(export:*)",
+      "Bash(cp:*)"
+    ]
+  }
+}
