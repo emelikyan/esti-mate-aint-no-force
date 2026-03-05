@@ -1,4 +1,4 @@
-import { QuestionnaireAnswers, PracticeEstimation, Estimation, RateConfig } from "./types";
+import { QuestionnaireAnswers, PracticeEstimation, Estimation, RateConfig, CostItem } from "./types";
 import { getEstimatedEndDate, DEFAULT_RATES, HOURS_PER_MD } from "./constants";
 
 function buildCostInstructions(rateConfig: RateConfig): string {
@@ -369,4 +369,209 @@ Return ONLY a valid JSON array of 2-4 sub-items:
     "pessimisticHours": number
   }
 ]`;
+}
+
+export function buildRecalculateTimelinePrompt(estimation: Estimation): string {
+  const phaseHours: Record<string, number> = {};
+  for (const item of estimation.costBreakdown) {
+    phaseHours[item.phase] = (phaseHours[item.phase] || 0) + item.totalHours;
+  }
+  const totalHours = estimation.costBreakdown.reduce((s, i) => s + i.totalHours, 0);
+  const totalMD = (totalHours / HOURS_PER_MD).toFixed(1);
+
+  const startDate = estimation.timeline.find((t) => t.startDate)?.startDate || "";
+
+  return `You are a senior project manager. The cost breakdown for project "${estimation.projectName}" has been manually adjusted. Recalculate the project phases and timeline based on the updated hours.
+
+Project: ${estimation.projectName}
+Summary: ${estimation.summary}
+
+Updated hours by phase:
+${Object.entries(phaseHours)
+  .map(([phase, hours]) => `- ${phase}: ${hours}h (${(hours / HOURS_PER_MD).toFixed(1)} MDs)`)
+  .join("\n")}
+Total: ${totalHours}h (${totalMD} MDs)
+
+Current phases:
+${JSON.stringify(estimation.phases, null, 2)}
+
+Current timeline:
+${JSON.stringify(estimation.timeline, null, 2)}
+
+${startDate ? `Project start date: ${startDate}. Calculate actual calendar dates (YYYY-MM-DD) based on this start date. Assume 5 working days per week and 8 hours per day.` : "No specific start date provided — leave startDate and endDate as empty strings."}
+
+Based on the updated hours, recalculate phase durations and timeline. Keep the same phase names and order. Preserve or update milestones as appropriate.
+
+Return ONLY valid JSON (no markdown, no code fences, no explanation):
+{
+  "phases": [
+    { "name": "string", "description": "string", "durationWeeks": number, "order": number }
+  ],
+  "timeline": [
+    {
+      "phase": "string",
+      "startWeek": number,
+      "endWeek": number,
+      "startDate": "YYYY-MM-DD or empty string",
+      "endDate": "YYYY-MM-DD or empty string",
+      "milestones": ["string"]
+    }
+  ]
+}`;
+}
+
+export function buildWorkshopsPrompt(estimation: Estimation): string {
+  const phases = (estimation.phases || [])
+    .sort((a, b) => a.order - b.order)
+    .map((p) => `- ${p.name}: ${p.description} (${p.durationWeeks} weeks)`)
+    .join("\n") || "Not specified";
+
+  const team = (estimation.team || [])
+    .map((t) => `- ${t.role} (×${t.count}): ${(t.responsibilities || []).slice(0, 2).join(", ")}`)
+    .join("\n") || "Not specified";
+
+  const deliverables = (estimation.deliverables || [])
+    .map((d) => `- [${d.phase}] ${d.name}: ${d.description}`)
+    .join("\n") || "Not specified";
+
+  const risks = (estimation.risks || [])
+    .filter((r) => r.severity === "high" || r.severity === "critical")
+    .map((r) => `- ${r.title} (${r.severity}): ${r.description}`)
+    .join("\n") || "None identified";
+
+  const assumptions = (estimation.assumptions || []).join("\n- ");
+
+  return `You are a professional IT delivery consultant. Based on the following project estimation, generate a list of recommended workshops to run with the client.
+
+Project: ${estimation.projectName}
+Summary: ${estimation.summary}
+
+Project Phases:
+${phases}
+
+Delivery Team:
+${team}
+
+Key Deliverables:
+${deliverables}
+
+High/Critical Risks:
+${risks}
+
+Key Assumptions:
+${assumptions ? `- ${assumptions}` : "None listed"}
+
+Generate 5–8 workshops that should be conducted throughout this project. Cover the full lifecycle — from initial discovery workshops in Blueprint to sign-off sessions in UAT & Go-Live. Make each workshop specific and actionable for this project.
+
+Each workshop must use one of these exact phase values: "Blueprint", "Implementation", or "UAT & Go-Live".
+
+Return ONLY a valid JSON array. No markdown, no code fences, no explanation — just the raw JSON array starting with [ and ending with ]:
+[
+  {
+    "name": "concise workshop name",
+    "phase": "Blueprint",
+    "objective": "1-2 sentence objective",
+    "agenda": ["agenda item 1", "agenda item 2", "agenda item 3", "agenda item 4"],
+    "participants": ["role 1", "role 2", "role 3"],
+    "duration": "2 hours",
+    "outputs": ["output 1", "output 2", "output 3"]
+  }
+]`;
+}
+
+export function buildCSVHydrationPrompt(
+  costItems: CostItem[],
+  projectName: string,
+  csvDescription: string,
+  rateConfig: RateConfig = DEFAULT_RATES
+): string {
+  const totalCost = costItems.reduce((s, i) => s + i.totalCost, 0);
+  const totalHours = costItems.reduce((s, i) => s + i.totalHours, 0);
+
+  return `You are an expert software project estimator and technical consultant with decades of experience.
+
+You have been given a cost breakdown that was imported from a CSV file for a project called "${projectName}".
+Your job is to generate all the surrounding context (phases, timeline, team, risks, deliverables, assumptions, limitations, custom components, and a summary) based on this cost data.
+
+CRITICAL: The costBreakdown is already finalized — do NOT modify it. Return it EXACTLY as provided below. Do not change any numbers, descriptions, categories, phases, or roles. Copy it verbatim into your response.
+
+<csv_cost_breakdown>
+${JSON.stringify(costItems, null, 2)}
+</csv_cost_breakdown>
+
+<csv_description>
+${csvDescription}
+</csv_description>
+
+Project totals: ${totalHours} hours, ${rateConfig.currency} ${totalCost.toLocaleString()}
+
+Return ONLY valid JSON matching this exact structure (no markdown, no code fences, just raw JSON):
+{
+  "projectName": "${projectName}",
+  "summary": "string - 2-3 sentence executive summary inferred from the cost breakdown",
+  "phases": [
+    {
+      "name": "string - phase name (must include Blueprint, Implementation, UAT & Go-Live)",
+      "description": "string - what happens in this phase, inferred from cost items",
+      "durationWeeks": number,
+      "order": number
+    }
+  ],
+  "timeline": [
+    {
+      "phase": "string - matching a phase name above",
+      "startWeek": number,
+      "endWeek": number,
+      "startDate": "",
+      "endDate": "",
+      "milestones": ["string - key milestone descriptions"]
+    }
+  ],
+  "costBreakdown": <COPY THE EXACT ARRAY FROM ABOVE - DO NOT MODIFY>,
+  "totalCost": { "amount": ${totalCost}, "currency": "${rateConfig.currency}" },
+  "team": [
+    {
+      "role": "string - e.g. Senior Full-Stack Developer",
+      "count": number,
+      "responsibilities": ["string"],
+      "requiredSkills": ["string"]
+    }
+  ],
+  "risks": [
+    {
+      "title": "string",
+      "description": "string",
+      "severity": "low" | "medium" | "high" | "critical",
+      "likelihood": "low" | "medium" | "high",
+      "mitigation": "string"
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "string",
+      "description": "string",
+      "phase": "string - matching a phase name above",
+      "type": "document" | "software" | "design" | "infrastructure" | "other"
+    }
+  ],
+  "assumptions": ["string - assumptions inferred from the cost data"],
+  "limitations": ["string - limitations and constraints"],
+  "customComponents": [
+    {
+      "name": "string - component/module name inferred from cost items",
+      "description": "string",
+      "complexity": "low" | "medium" | "high",
+      "estimatedHours": number
+    }
+  ]
+}
+
+Include at least:
+- 3 phases (Blueprint, Implementation, UAT & Go-Live) with timeline
+- 4-6 team roles inferred from the cost breakdown roles
+- 6-10 risks
+- 8-12 deliverables
+- 5-10 assumptions
+- 3-6 limitations
+- Custom components inferred from the cost item categories`;
 }

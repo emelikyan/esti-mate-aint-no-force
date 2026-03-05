@@ -68,22 +68,22 @@ export default function FileUploader({
 
   if (selectedFile) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 p-6">
+      <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <FileText className="h-5 w-5 text-green-600" />
+            <div className="rounded-lg bg-green-500/15 p-2">
+              <FileText className="h-5 w-5 text-green-400" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">{selectedFile.name}</p>
-              <p className="text-sm text-gray-500">
+              <p className="font-medium text-white">{selectedFile.name}</p>
+              <p className="text-sm text-slate-400">
                 {formatSize(selectedFile.size)}
               </p>
             </div>
           </div>
           <button
             onClick={onRemove}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="rounded-lg p-2 text-slate-500 hover:bg-white/10 hover:text-slate-300 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -103,18 +103,18 @@ export default function FileUploader({
         onDrop={handleDrop}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors ${
           isDragging
-            ? "border-indigo-400 bg-indigo-50"
-            : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+            ? "border-violet-400 bg-violet-500/10"
+            : "border-white/[0.08] bg-white/[0.03] hover:border-violet-500/20 hover:bg-white/[0.06]"
         }`}
       >
         <Upload
-          className={`mb-3 h-8 w-8 ${isDragging ? "text-indigo-500" : "text-gray-400"}`}
+          className={`mb-3 h-8 w-8 ${isDragging ? "text-violet-500" : "text-slate-500"}`}
         />
-        <p className="text-sm font-medium text-gray-700">
+        <p className="text-sm font-medium text-slate-300">
           Drag and drop your file here, or{" "}
-          <span className="text-indigo-600">browse</span>
+          <span className="text-violet-400">browse</span>
         </p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-slate-400">
           PDF, DOCX, or TXT up to 10MB
         </p>
         <input
@@ -125,7 +125,7 @@ export default function FileUploader({
         />
       </label>
       {error && (
-        <p className="mt-2 text-sm text-red-600">{error}</p>
+        <p className="mt-2 text-sm text-red-400">{error}</p>
       )}
     </div>
   );

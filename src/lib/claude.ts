@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Estimation, PracticeEstimation, CostItem } from "./types";
-import { buildConfidencePrompt, buildRefinePrompt, buildDecomposePrompt } from "./prompts";
+import { Estimation, PracticeEstimation, CostItem, Phase, TimelineItem, Workshop } from "./types";
+import { buildConfidencePrompt, buildRefinePrompt, buildDecomposePrompt, buildRecalculateTimelinePrompt, buildWorkshopsPrompt } from "./prompts";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -8,55 +8,37 @@ const client = new Anthropic({
 });
 
 function extractAndParseJSON(text: string): Estimation {
-  let jsonStr = text.trim();
+  const raw = text.trim();
 
-  // Strip markdown code fences
-  if (jsonStr.startsWith("```")) {
-    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  // Try 1: extract content from a code fence anywhere in the response
+  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    try {
+      return JSON.parse(fenceMatch[1].trim());
+    } catch {
+      // fall through
+    }
   }
 
-  // Try parsing as-is first
-  try {
-    return JSON.parse(jsonStr);
-  } catch {
-    // If truncated, try to find the last complete object/array and close brackets
+  // Try 2: extract the outermost { … } (handles preamble/postamble text)
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+    } catch {
+      // fall through to repair
+    }
   }
 
-  // Try to repair truncated JSON by closing open brackets
-  let repaired = jsonStr;
+  // Try 3: attempt repair on the JSON portion (handles truncated responses)
+  let repaired = firstBrace !== -1 ? raw.slice(firstBrace) : raw;
+  repaired = repaired.replace(/,\s*"[^"]*$/, ""); // trailing incomplete key
+  repaired = repaired.replace(/,\s*$/, "");        // trailing comma
 
-  // Remove any trailing incomplete string (ends mid-value)
-  repaired = repaired.replace(/,\s*"[^"]*$/, "");
-  repaired = repaired.replace(/,\s*$/, "");
-
-  // Count open/close brackets
-  const opens: Record<string, number> = { "{": 0, "[": 0 };
-  const closes: Record<string, string> = { "}": "{", "]": "[" };
+  const bracketStack: string[] = [];
   let inString = false;
   let escape = false;
-
-  for (const char of repaired) {
-    if (escape) {
-      escape = false;
-      continue;
-    }
-    if (char === "\\") {
-      escape = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (char === "{" || char === "[") opens[char]++;
-    if (char === "}" || char === "]") opens[closes[char]]--;
-  }
-
-  // Close any open brackets in reverse order
-  const bracketStack: string[] = [];
-  inString = false;
-  escape = false;
   for (const char of repaired) {
     if (escape) { escape = false; continue; }
     if (char === "\\") { escape = true; continue; }
@@ -66,12 +48,12 @@ function extractAndParseJSON(text: string): Estimation {
     if (char === "[") bracketStack.push("]");
     if (char === "}" || char === "]") bracketStack.pop();
   }
-
   repaired += bracketStack.reverse().join("");
 
   try {
     return JSON.parse(repaired);
   } catch {
+    console.error("[extractAndParseJSON] All parse attempts failed. Raw response start:", raw.slice(0, 300));
     throw new Error(
       "Failed to parse estimation response from AI. The response may have been truncated."
     );
@@ -80,7 +62,7 @@ function extractAndParseJSON(text: string): Estimation {
 
 export async function generateEstimation(prompt: string): Promise<Estimation> {
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     max_tokens: 16384,
     messages: [{ role: "user", content: prompt }],
   });
@@ -133,7 +115,7 @@ export async function addConfidenceScores(
   const prompt = buildConfidencePrompt(estimation, practices);
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     max_tokens: 4096,
     messages: [{ role: "user", content: prompt }],
   });
@@ -197,7 +179,7 @@ export async function refineItem(
       : buildDecomposePrompt(estimation, item, practices);
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     max_tokens: 4096,
     messages: [{ role: "user", content: prompt }],
   });
@@ -230,4 +212,97 @@ export async function refineItem(
     pessimisticHours: i.pessimisticHours || undefined,
     confirmed: false,
   }));
+}
+
+export async function recalculateTimeline(
+  estimation: Estimation
+): Promise<{ phases: Phase[]; timeline: TimelineItem[] }> {
+  const prompt = buildRecalculateTimelinePrompt(estimation);
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const textBlock = message.content.find((block) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
+  }
+
+  let jsonStr = textBlock.text.trim();
+
+  const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    jsonStr = fenceMatch[1].trim();
+  } else {
+    const firstBrace = jsonStr.indexOf("{");
+    const lastBrace = jsonStr.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+    }
+  }
+
+  const parsed = JSON.parse(jsonStr);
+  return {
+    phases: (parsed.phases || []) as Phase[],
+    timeline: (parsed.timeline || []) as TimelineItem[],
+  };
+}
+
+export async function generateWorkshops(estimation: Estimation): Promise<Workshop[]> {
+  const prompt = buildWorkshopsPrompt(estimation);
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const textBlock = message.content.find((block) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
+  }
+
+  const raw = textBlock.text.trim();
+
+  // Try 1: content inside a code fence
+  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    try {
+      const parsed = JSON.parse(fenceMatch[1].trim());
+      return (Array.isArray(parsed) ? parsed : []) as Workshop[];
+    } catch {
+      // fall through
+    }
+  }
+
+  // Try 2: find the first [ that starts an array of objects ([ followed by whitespace then {)
+  // This avoids picking up [ from preamble text like "[project name]"
+  const arrayStart = raw.search(/\[\s*\{/);
+  const lastBracket = raw.lastIndexOf("]");
+  if (arrayStart !== -1 && lastBracket > arrayStart) {
+    try {
+      const parsed = JSON.parse(raw.slice(arrayStart, lastBracket + 1));
+      return (Array.isArray(parsed) ? parsed : []) as Workshop[];
+    } catch {
+      // fall through
+    }
+  }
+
+  // Try 3: Claude wrapped it in an object { workshops: [...] }
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      const parsed = JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+      const arr = parsed.workshops ?? parsed.items ?? parsed.data ?? [];
+      return (Array.isArray(arr) ? arr : []) as Workshop[];
+    } catch {
+      // fall through
+    }
+  }
+
+  console.error("[generateWorkshops] All parse attempts failed. Raw start:", raw.slice(0, 500));
+  throw new Error("Could not parse workshop list from AI response.");
 }

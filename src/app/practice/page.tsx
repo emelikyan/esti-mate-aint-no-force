@@ -15,8 +15,10 @@ import {
   FileSpreadsheet,
   Check,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
-import { PracticeEstimation } from "@/lib/types";
+import { PracticeEstimation, RateConfig } from "@/lib/types";
+import { DEFAULT_RATES } from "@/lib/constants";
 import { PROJECT_TYPES } from "@/lib/constants";
 import {
   parseCSVRows,
@@ -50,6 +52,7 @@ export default function PracticePage() {
   const [csvRows, setCsvRows] = useState<CSVRow[] | null>(null);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvProjectName, setCsvProjectName] = useState("");
+  const [csvLoading, setCsvLoading] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -142,13 +145,51 @@ export default function PracticePage() {
     e.target.value = "";
   };
 
-  const handleCsvImport = () => {
+  const handleCsvImport = async () => {
     if (!csvRows || !csvProjectName.trim()) return;
-    const project = aggregateCSVToProject(csvRows, csvProjectName.trim());
-    save([...practices, project]);
-    setCsvRows(null);
-    setCsvFileName("");
-    setCsvProjectName("");
+
+    setCsvLoading(true);
+    try {
+      // Load rate config from localStorage
+      let rateConfig: RateConfig = DEFAULT_RATES;
+      const storedRates = localStorage.getItem("rate-config");
+      if (storedRates) {
+        try {
+          rateConfig = JSON.parse(storedRates);
+        } catch {
+          // use defaults
+        }
+      }
+
+      const res = await fetch("/api/estimate-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          csvRows,
+          projectName: csvProjectName.trim(),
+          rateConfig,
+        }),
+      });
+
+      if (!res.ok) throw new Error("API request failed");
+
+      const { estimation } = await res.json();
+
+      // Create practice record with fullEstimation
+      const project = aggregateCSVToProject(csvRows, csvProjectName.trim());
+      project.fullEstimation = JSON.stringify(estimation);
+      save([...practices, project]);
+    } catch (err) {
+      console.error("CSV estimation error:", err);
+      // Fall back to current behavior (save without full estimation)
+      const project = aggregateCSVToProject(csvRows, csvProjectName.trim());
+      save([...practices, project]);
+    } finally {
+      setCsvLoading(false);
+      setCsvRows(null);
+      setCsvFileName("");
+      setCsvProjectName("");
+    }
   };
 
   const handleCsvCancel = () => {
@@ -164,8 +205,8 @@ export default function PracticePage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors text-sm";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+    "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-colors text-sm";
+  const labelClass = "block text-sm font-medium text-slate-300 mb-1";
 
   // Compute CSV totals for the footer
   const csvTotalRow = csvRows?.find((r) => r.isTotal);
@@ -190,7 +231,7 @@ export default function PracticePage() {
     <div className="mx-auto max-w-4xl px-6 py-12">
       <Link
         href="/"
-        className="mb-8 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        className="mb-8 inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to home
@@ -198,10 +239,10 @@ export default function PracticePage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-white">
             Practice Library
           </h1>
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-slate-400">
             Add real project data from past estimations to calibrate AI
             estimates closer to your practice standards.
           </p>
@@ -210,7 +251,7 @@ export default function PracticePage() {
           <div className="flex gap-2">
             <button
               onClick={() => csvInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5"
             >
               <Upload className="h-4 w-4" />
               Import CSV
@@ -224,7 +265,7 @@ export default function PracticePage() {
             />
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:brightness-110"
             >
               <Plus className="h-4 w-4" />
               Add Project
@@ -235,17 +276,17 @@ export default function PracticePage() {
 
       {/* CSV Preview */}
       {csvRows && (
-        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.03] p-6 shadow-sm backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-indigo-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
+              <FileSpreadsheet className="h-5 w-5 text-violet-400" />
+              <h2 className="text-lg font-semibold text-white">
                 Import Project from CSV
               </h2>
             </div>
             <button
               onClick={handleCsvCancel}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-300"
             >
               <X className="h-5 w-5" />
             </button>
@@ -261,17 +302,17 @@ export default function PracticePage() {
               placeholder="Enter a name for this project"
               className={inputClass}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-slate-400">
               {csvFileName} — {csvRows.filter((r) => !r.isTotal).length} line
               items will be saved as one project record.
             </p>
           </div>
 
           {/* Line items table */}
-          <div className="max-h-96 overflow-auto rounded-lg border border-gray-100">
+          <div className="max-h-96 overflow-auto rounded-lg border border-white/[0.05]">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-gray-50">
-                <tr className="border-b border-gray-200 text-xs font-medium uppercase text-gray-500">
+              <thead className="sticky top-0 bg-white/5">
+                <tr className="border-b border-white/[0.06] text-xs font-medium uppercase text-slate-400">
                   <th className="px-3 py-2">Row</th>
                   <th className="px-3 py-2">Feature</th>
                   <th className="px-3 py-2 text-right">CS</th>
@@ -283,19 +324,19 @@ export default function PracticePage() {
                   <th className="px-3 py-2 text-right">Cost</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-white/[0.05]">
                 {csvRows.map((row, i) => (
                   <tr
                     key={i}
                     className={
                       row.isTotal
-                        ? "bg-gray-100 font-bold text-gray-900"
+                        ? "bg-white/10 font-bold text-white"
                         : row.isSummary
-                          ? "bg-gray-50 font-semibold text-gray-800"
-                          : "text-gray-700"
+                          ? "bg-white/5 font-semibold text-slate-200"
+                          : "text-slate-300"
                     }
                   >
-                    <td className="px-3 py-1.5 whitespace-nowrap text-gray-500 text-xs">
+                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-400 text-xs">
                       {row.row}
                     </td>
                     <td
@@ -334,7 +375,7 @@ export default function PracticePage() {
 
           {/* Aggregated totals summary */}
           {csvTotals && (
-            <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+            <div className="mt-3 rounded-lg border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-200">
               <span className="font-medium">Project totals: </span>
               {csvTotals.csMD > 0 && <span>CS {csvTotals.csMD} </span>}
               {csvTotals.devMD > 0 && <span>Dev {csvTotals.devMD} </span>}
@@ -352,7 +393,7 @@ export default function PracticePage() {
             </div>
           )}
 
-          <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm text-blue-700">
+          <div className="mt-3 rounded-lg border border-violet-500/15 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
             This CSV will be imported as a single project reference. PM% and
             QA% will be auto-calculated from role man-days (1 MD = 8 hours).
           </div>
@@ -360,17 +401,27 @@ export default function PracticePage() {
           <div className="mt-4 flex justify-end gap-3">
             <button
               onClick={handleCsvCancel}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={csvLoading}
+              className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               onClick={handleCsvImport}
-              disabled={!csvProjectName.trim()}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={!csvProjectName.trim() || csvLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
             >
-              <Check className="h-4 w-4" />
-              Import as 1 Project
+              {csvLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating Estimation…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  Import &amp; Generate Estimation
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -378,14 +429,14 @@ export default function PracticePage() {
 
       {/* Form */}
       {showForm && (
-        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.03] p-6 shadow-sm backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-white">
               {editingId ? "Edit Project" : "Add Historical Project"}
             </h2>
             <button
               onClick={handleCancel}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-300"
             >
               <X className="h-5 w-5" />
             </button>
@@ -504,14 +555,14 @@ export default function PracticePage() {
           <div className="mt-4 flex justify-end gap-3">
             <button
               onClick={handleCancel}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={!form.projectName || !form.description}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
               {editingId ? "Update" : "Save"}
@@ -523,13 +574,13 @@ export default function PracticePage() {
       {/* List */}
       {practices.length === 0 && !showForm && !csvRows ? (
         <div className="mt-12 flex flex-col items-center text-center">
-          <div className="rounded-full bg-gray-100 p-4">
-            <BookOpen className="h-8 w-8 text-gray-400" />
+          <div className="rounded-full bg-white/10 p-4">
+            <BookOpen className="h-8 w-8 text-slate-500" />
           </div>
-          <h3 className="mt-4 font-medium text-gray-900">
+          <h3 className="mt-4 font-medium text-white">
             No practice data yet
           </h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-slate-400">
             Add historical project data to help calibrate future estimations.
           </p>
         </div>
@@ -538,15 +589,15 @@ export default function PracticePage() {
           {practices.map((p) => (
             <div
               key={p.id}
-              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+              className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 shadow-sm backdrop-blur-sm"
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900">
+                  <h3 className="font-semibold text-white">
                     {p.projectName}
                   </h3>
                   {p.projectType && (
-                    <span className="mt-1 inline-block rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                    <span className="mt-1 inline-block rounded-full bg-violet-500/10 px-2.5 py-0.5 text-xs font-medium text-violet-300">
                       {p.projectType}
                     </span>
                   )}
@@ -557,8 +608,8 @@ export default function PracticePage() {
                     disabled={!p.fullEstimation}
                     className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
                       p.fullEstimation
-                        ? "text-indigo-600 hover:bg-indigo-50"
-                        : "text-gray-300 cursor-not-allowed"
+                        ? "text-violet-400 hover:bg-violet-500/10"
+                        : "text-slate-600 cursor-not-allowed"
                     }`}
                     title={p.fullEstimation ? "Open full estimation" : "No full estimation data (saved before this feature)"}
                   >
@@ -567,22 +618,22 @@ export default function PracticePage() {
                   </button>
                   <button
                     onClick={() => handleEdit(p)}
-                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    className="rounded-lg p-2 text-slate-500 hover:bg-white/10 hover:text-slate-300"
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(p.id)}
-                    className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    className="rounded-lg p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-              <p className="mt-2 text-sm text-gray-600 whitespace-pre-line line-clamp-4">
+              <p className="mt-2 text-sm text-slate-400 whitespace-pre-line line-clamp-4">
                 {p.description}
               </p>
-              <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-500">
+              <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-400">
                 {p.actualTimeline && <span>Timeline: {p.actualTimeline}</span>}
                 {p.actualCost > 0 && (
                   <span>Cost: ${p.actualCost.toLocaleString()}</span>
@@ -599,7 +650,7 @@ export default function PracticePage() {
                 {p.pmMD != null && <span>PM: {p.pmMD} MD</span>}
               </div>
               {p.lessonsLearned && (
-                <p className="mt-2 text-sm italic text-gray-500">
+                <p className="mt-2 text-sm italic text-slate-400">
                   &ldquo;{p.lessonsLearned}&rdquo;
                 </p>
               )}

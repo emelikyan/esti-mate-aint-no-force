@@ -20,6 +20,7 @@ export interface CostItem {
   userConfidence?: number;
   startDate?: string;
   endDate?: string;
+  originalRoles?: RoleBreakdown[]; // AI-generated roles, preserved on first manual edit
 }
 
 export interface Estimation {
@@ -35,6 +36,7 @@ export interface Estimation {
   assumptions: string[];
   limitations: string[];
   customComponents: CustomComponent[];
+  source?: "csv" | "rfp" | "questionnaire";
 }
 
 export interface Phase {
@@ -82,6 +84,16 @@ export interface CustomComponent {
   estimatedHours: number;
 }
 
+export interface Workshop {
+  name: string;
+  phase: string;
+  objective: string;
+  agenda: string[];
+  participants: string[];
+  duration: string;
+  outputs: string[];
+}
+
 export interface RateConfig {
   currency: string;
   csRate: number;
@@ -89,6 +101,8 @@ export interface RateConfig {
   arRate: number;
   pmPercent: number;
   qaPercent: number;
+  pmRate?: number;
+  qaRate?: number;
 }
 
 export interface QuestionnaireAnswers {

@@ -1,5 +1,5 @@
-import { PracticeEstimation } from "./types";
-import { HOURS_PER_MD } from "./constants";
+import { PracticeEstimation, CostItem, RateConfig } from "./types";
+import { HOURS_PER_MD, DEFAULT_RATES } from "./constants";
 
 /** A single parsed row from a CSV file, used for preview */
 export interface CSVRow {
@@ -341,6 +341,70 @@ export function aggregateCSVToProject(
     pmHours: pmMD > 0 ? pmMD * HOURS_PER_MD : undefined,
     qaHours: qaMD > 0 ? qaMD * HOURS_PER_MD : undefined,
   };
+}
+
+/**
+ * Convert parsed CSV rows into CostItem[] for a full estimation.
+ * Uses only detail (leaf) rows to avoid double-counting.
+ * Assigns phases heuristically: first ~30% → Blueprint, next ~50% → Implementation, rest → UAT & Go-Live.
+ * Hours/costs are preserved exactly from CSV data.
+ */
+export function buildCostItemsFromCSV(
+  rows: CSVRow[],
+  rateConfig: RateConfig = DEFAULT_RATES
+): CostItem[] {
+  // Use only leaf rows (detail rows like 1.1, 1.2) to avoid double-counting
+  const leafRows = rows.filter((r) => !r.isSummary && !r.isTotal);
+  // If no leaf rows, fall back to summary rows (flat CSV without hierarchy)
+  const itemRows = leafRows.length > 0 ? leafRows : rows.filter((r) => !r.isTotal);
+
+  if (itemRows.length === 0) return [];
+
+  // Assign phases heuristically
+  const phases: CostItem["phase"][] = ["Blueprint", "Implementation", "UAT & Go-Live"];
+  const bpEnd = Math.max(1, Math.round(itemRows.length * 0.3));
+  const implEnd = Math.max(bpEnd + 1, Math.round(itemRows.length * 0.8));
+
+  // Compute weighted average rate for PM/QA
+  const weightedAvgRate = (csH: number, devH: number, arH: number): number => {
+    const totalH = csH + devH + arH;
+    if (totalH === 0) return rateConfig.devRate;
+    return (csH * rateConfig.csRate + devH * rateConfig.devRate + arH * rateConfig.arRate) / totalH;
+  };
+
+  return itemRows.map((row, i): CostItem => {
+    const phase = i < bpEnd ? phases[0] : i < implEnd ? phases[1] : phases[2];
+
+    const csHours = row.csMD * HOURS_PER_MD;
+    const devHours = row.devMD * HOURS_PER_MD;
+    const arHours = row.arMD * HOURS_PER_MD;
+    const pmHours = row.pmMD * HOURS_PER_MD;
+    const qaHours = row.qaMD * HOURS_PER_MD;
+
+    const avgRate = weightedAvgRate(csHours, devHours, arHours);
+
+    const roles = [
+      ...(csHours > 0 ? [{ role: "CS" as const, hours: csHours, rate: rateConfig.csRate, cost: csHours * rateConfig.csRate }] : []),
+      ...(devHours > 0 ? [{ role: "Dev" as const, hours: devHours, rate: rateConfig.devRate, cost: devHours * rateConfig.devRate }] : []),
+      ...(arHours > 0 ? [{ role: "AR" as const, hours: arHours, rate: rateConfig.arRate, cost: arHours * rateConfig.arRate }] : []),
+      ...(pmHours > 0 ? [{ role: "PM" as const, hours: pmHours, rate: avgRate, cost: pmHours * avgRate }] : []),
+      ...(qaHours > 0 ? [{ role: "QA" as const, hours: qaHours, rate: avgRate, cost: qaHours * avgRate }] : []),
+    ];
+
+    const totalHours = roles.reduce((s, r) => s + r.hours, 0);
+    const totalCost = row.cost > 0 ? row.cost : roles.reduce((s, r) => s + r.cost, 0);
+
+    return {
+      phase,
+      category: row.feature,
+      description: row.description || row.assumption || row.feature,
+      roles,
+      totalHours,
+      totalMD: totalHours / HOURS_PER_MD,
+      totalCost,
+      confidence: 0,
+    };
+  });
 }
 
 /** Calculate PM% and QA% averages from practice data */

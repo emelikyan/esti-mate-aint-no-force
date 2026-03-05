@@ -6,7 +6,7 @@ interface LogoProps {
 export default function Logo({ className = "", iconOnly = false }: LogoProps) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/20 ring-1 ring-white/10">
+      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/20 ring-1 ring-white/10">
         <svg
           viewBox="0 0 24 24"
           fill="currentColor"
@@ -24,8 +24,8 @@ export default function Logo({ className = "", iconOnly = false }: LogoProps) {
         </svg>
       </span>
       {!iconOnly && (
-        <span className="text-xl font-bold tracking-tight text-slate-900">
-          Esti<span className="text-blue-600">Mate</span>
+        <span className="text-xl font-bold tracking-tight text-slate-100">
+          Esti<span className="text-violet-400">Mate</span>
         </span>
       )}
     </span>

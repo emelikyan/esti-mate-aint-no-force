@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import StepIndicator from "@/components/StepIndicator";
+import { nextWeekYMD } from "@/components/DatePicker";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
 import LoadingEstimation from "@/components/LoadingEstimation";
 import { QUESTIONNAIRE_STEPS, DEFAULT_RATES } from "@/lib/constants";
@@ -20,7 +21,7 @@ const INITIAL_ANSWERS: QuestionnaireAnswers = {
   integrations: "",
   designRequirements: "",
   timeline: "",
-  startDate: "",
+  startDate: nextWeekYMD(),
   budgetRange: "",
   teamPreferences: "",
   additionalNotes: "",
@@ -126,32 +127,32 @@ export default function QuestionnairePage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl px-6 py-12">
+      <div className="mx-auto max-w-3xl px-6 py-12">
         <LoadingEstimation />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
+    <div className="mx-auto max-w-3xl px-6 py-12">
       <Link
         href="/"
-        className="mb-8 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+        className="mb-8 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-200 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to home
       </Link>
 
-      <h1 className="text-3xl font-bold text-slate-900">
+      <h1 className="text-3xl font-bold text-slate-100">
         Tell Us About Your Project
       </h1>
-      <p className="mt-2 text-slate-600">
+      <p className="mt-2 text-slate-400">
         Answer a few questions and we&apos;ll generate a detailed estimation for
         your project.
       </p>
 
       {practices.length > 0 && (
-        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm text-blue-700">
+        <div className="mt-4 rounded-lg border border-violet-500/15 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
           Using {practices.length} practice project(s) for calibration
         </div>
       )}
@@ -164,8 +165,8 @@ export default function QuestionnairePage() {
         />
       </div>
 
-      <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-6 text-lg font-semibold text-slate-900">
+      <div className="mt-8 rounded-xl border border-white/[0.06] bg-white/[0.03] p-6 shadow-sm backdrop-blur-sm">
+        <h2 className="mb-6 text-lg font-semibold text-slate-100">
           {QUESTIONNAIRE_STEPS[currentStep].title}
         </h2>
         <QuestionnaireForm
@@ -176,7 +177,7 @@ export default function QuestionnairePage() {
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
@@ -185,7 +186,7 @@ export default function QuestionnairePage() {
         <button
           onClick={handleBack}
           disabled={currentStep === 0}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-5 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -194,14 +195,14 @@ export default function QuestionnairePage() {
         {isLastStep ? (
           <button
             onClick={handleSubmit}
-            className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:brightness-110"
           >
             Generate Estimation
           </button>
         ) : (
           <button
             onClick={handleNext}
-            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:brightness-110"
           >
             Next
             <ArrowRight className="h-4 w-4" />

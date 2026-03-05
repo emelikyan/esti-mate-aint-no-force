@@ -35,7 +35,9 @@ src/
 │   └── api/
 │       ├── estimate-rfp/         # POST - generate from uploaded document
 │       ├── estimate-questions/   # POST - generate from questionnaire answers
-│       └── refine-item/          # POST - refine or decompose a cost item
+│       ├── refine-item/          # POST - refine or decompose a cost item
+│       ├── recalculate-timeline/ # POST - recalculate phases/timeline after manual hour edits
+│       └── generate-workshops/   # POST - generate workshop plan from estimation data
 ├── components/
 │   ├── EstimationResults.tsx     # Master container for all result sections
 │   ├── CostBreakdown.tsx         # Cost items grouped by phase, confidence controls, export
@@ -46,6 +48,7 @@ src/
 │   ├── DeliverablesList.tsx      # Deliverables grouped by phase
 │   ├── CustomComponentsList.tsx  # Special components with complexity
 │   ├── AssumptionsLimitations.tsx # Two-column assumptions/limitations
+│   ├── WorkshopsModal.tsx        # Full-screen workshops list with export (CSV/TXT)
 │   ├── QuestionnaireForm.tsx     # Step-specific form renderer
 │   ├── FileUploader.tsx          # Drag-and-drop upload
 │   ├── LoadingEstimation.tsx     # Animated loading during AI generation
@@ -55,7 +58,7 @@ src/
 └── lib/
     ├── types.ts                  # All TypeScript interfaces
     ├── constants.ts              # Questionnaire config, rates, role labels
-    ├── claude.ts                 # Anthropic SDK: generateEstimation, addConfidenceScores, refineItem
+    ├── claude.ts                 # Anthropic SDK: generateEstimation, addConfidenceScores, refineItem, recalculateTimeline, generateWorkshops
     ├── prompts.ts                # Prompt builders for all AI calls
     ├── parse-document.ts         # PDF/DOCX/TXT text extraction
     ├── parse-csv.ts              # CSV import with flexible column detection
@@ -75,8 +78,11 @@ User Input (RFP or Questionnaire)
   → Stored in sessionStorage → rendered on /results
 
 Results Page Actions:
-  ├── Refine item     → POST /api/refine-item (action: "refine")
-  ├── Decompose item  → POST /api/refine-item (action: "decompose")
+  ├── Refine item          → POST /api/refine-item (action: "refine")
+  ├── Decompose item       → POST /api/refine-item (action: "decompose")
+  ├── Edit hours manually  → HoursEditor inline form; saves originalRoles snapshot; updates totalCost
+  ├── Recalculate Timeline → POST /api/recalculate-timeline; updates phases + timeline based on new hours
+  ├── Workshops            → POST /api/generate-workshops; opens full-screen WorkshopsModal
   ├── Override confidence / mark confirmed → local state + sessionStorage
   ├── Save to Practice → localStorage + fullEstimation JSON snapshot
   ├── Export → CSV / XLSX / clipboard image / print
@@ -131,9 +137,31 @@ No database — everything is browser-local.
 - **Open estimation:** entries saved from results page include full estimation snapshot — clicking "Open" restores the complete estimation on /results
 - Auto-derived PM%/QA% rates from practice data used in future estimations
 
-### 6. Exports
+### 6. Manual Hours Editing
+- Pencil icon on each cost line item opens `HoursEditor` inline
+- Shows AI estimate vs editable "Your Hours" per role with `−` / `+` stepper buttons and direct text input
+- On save: `originalRoles` preserved on the `CostItem` for comparison; `totalHours`, `totalMD`, `totalCost` recalculated; Man-Day summary table updates immediately
+- `sessionEdited` boolean tracks edits made in the current page session only — prevents false "Outdated" badge when loading a previously-saved estimation
+
+### 7. Timeline Recalculation
+- When manual hour edits are saved, the Timeline stats card gains an amber "Outdated" indicator
+- **Recalculate Timeline** button appears in the Project Phases section header
+- Calls `POST /api/recalculate-timeline` → Claude recalculates `phases` and `timeline` based on updated hours per phase
+- On success: button changes to "✓ Timeline updated"; further edits reset the indicator
+
+### 8. Workshops
+- **Workshops** button in results page toolbar generates a project-specific workshop plan via `POST /api/generate-workshops`
+- Claude receives project phases, team, deliverables, high-severity risks, and assumptions; returns 5–8 workshops
+- Each workshop: name, phase, objective, agenda (4–6 items), participants, duration, expected outputs
+- Displayed in full-screen overlay (`WorkshopsModal`) with 2-column card grid
+- Workshops are cached in component state — subsequent opens are instant (no re-generation)
+- Animated rotating messages during generation; error state with retry button
+- Export: CSV or plain-text (TXT)
+
+### 9. Exports
 - Cost breakdown → CSV, XLSX, clipboard image
 - Resource plan → CSV, XLSX
+- Workshop list → CSV, TXT
 - Full page → browser print
 
 ---
@@ -150,7 +178,14 @@ Estimation {
 CostItem {
   phase, category, description, roles: RoleBreakdown[],
   totalHours, totalMD, totalCost, confidence,
-  optimisticHours?, pessimisticHours?, confirmed?, userConfidence?
+  optimisticHours?, pessimisticHours?, confirmed?, userConfidence?,
+  originalRoles?  // snapshot of AI roles on first manual edit; presence = item has been edited
+}
+
+Workshop {
+  name, phase, objective,
+  agenda: string[], participants: string[],
+  duration, outputs: string[]
 }
 
 RoleBreakdown { role: "CS"|"Dev"|"AR"|"PM"|"QA", hours, rate, cost }
@@ -216,3 +251,27 @@ PracticeEstimation {
 4. `src/lib/resource-plan.ts` — `ResourceGap` interface, gap detection in `buildResourcePlan`, `compressResourcePlan()`, `optimizeTimeline()`
 5. `src/components/ResourcePlan.tsx` — gap warning banner, compress toggle, optimize timeline button
 6. `src/components/EstimationResults.tsx` — threads `onUpdateEstimation` callback to ResourcePlan
+
+---
+
+### Manual Hour Editing + Timeline Recalculation (March 2026)
+
+- `CostItem.originalRoles` field preserves AI-generated role hours on first manual save
+- `HoursEditor` component (inside `CostBreakdown.tsx`) — inline edit panel with `−`/`+` stepper controls per role; shows AI estimate vs new hours side-by-side; updates totalCost on save
+- `PhaseTimeline.tsx` — `isOutdated`/`justRecalculated` props; amber "Recalculate Timeline" button when hours have been edited; green "✓ Timeline updated" after recalculation
+- `EstimationResults.tsx` — amber "Outdated" badge on the Timeline stats card
+- `src/app/api/recalculate-timeline/route.ts` — new POST endpoint
+- `src/lib/claude.ts` — `recalculateTimeline()` function; `buildRecalculateTimelinePrompt()` in prompts.ts
+- `src/app/results/page.tsx` — `sessionEdited` boolean (resets to false on page load; true only when user saves hour edits in current session) prevents false "Outdated" badge when loading a previously-edited estimation
+
+### Files Modified
+1. `src/lib/types.ts` — `originalRoles?: RoleBreakdown[]` on CostItem; `Workshop` interface
+2. `src/lib/claude.ts` — `recalculateTimeline()`, `generateWorkshops()`
+3. `src/lib/prompts.ts` — `buildRecalculateTimelinePrompt()`, `buildWorkshopsPrompt()`
+4. `src/components/CostBreakdown.tsx` — `HoursEditor` with stepper buttons; `MDSummaryTable` reflects manual saves
+5. `src/components/PhaseTimeline.tsx` — recalculate button + "updated" confirmation
+6. `src/components/EstimationResults.tsx` — "Outdated" badge on Timeline stats card
+7. `src/components/WorkshopsModal.tsx` — new file; full-screen workshop grid, loading messages, error/retry state, CSV+TXT export
+8. `src/app/results/page.tsx` — `sessionEdited` state, `handleEditHours`, `handleRecalculateTimeline`, `handleOpenWorkshops`, `generateWorkshopsList`
+9. `src/app/api/recalculate-timeline/route.ts` — new file
+10. `src/app/api/generate-workshops/route.ts` — new file

@@ -9,6 +9,33 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #0a0a1a;
+  color: #e2e8f0;
+}
+
+input, textarea, select {
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #e2e8f0;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.25);
 }
 
 @media print {
@@ -22,5 +49,28 @@ body {
   }
   .print-break {
     page-break-before: always;
+  }
+  /* Presentation PDF: show only the print container, one slide per page */
+  body.presentation-printing * {
+    visibility: hidden;
+  }
+  body.presentation-printing .presentation-print,
+  body.presentation-printing .presentation-print * {
+    visibility: visible;
+  }
+  body.presentation-printing .presentation-print {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #0f172a;
+    padding: 2rem;
+  }
+  .presentation-print .slide-page {
+    page-break-after: always;
+  }
+  .presentation-print .slide-page:last-child {
+    page-break-after: auto;
   }
 }

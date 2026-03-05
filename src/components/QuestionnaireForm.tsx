@@ -12,6 +12,7 @@ import {
   getEstimatedEndDate,
 } from "@/lib/constants";
 import { ChevronDown } from "lucide-react";
+import DatePicker from "@/components/DatePicker";
 
 interface QuestionnaireFormProps {
   step: number;
@@ -20,8 +21,8 @@ interface QuestionnaireFormProps {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors";
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+  "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-colors";
+const labelClass = "block text-sm font-medium text-slate-300 mb-1.5";
 
 function TechStackMultiSelect({
   value,
@@ -58,7 +59,7 @@ function TechStackMultiSelect({
         onClick={() => setOpen(!open)}
         className={`${inputClass} flex min-h-[46px] cursor-pointer items-center justify-between gap-2 text-left`}
       >
-        <span className={value.length ? "text-slate-900" : "text-slate-400"}>
+        <span className={value.length ? "text-slate-100" : "text-slate-400"}>
           {value.length
             ? value.join(", ")
             : "Select technologies (optional)"}
@@ -68,19 +69,19 @@ function TechStackMultiSelect({
         />
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-white/[0.06] bg-[#0e0e22] py-1 shadow-lg">
           {TECH_STACK_OPTIONS.map((option) => (
             <label
               key={option}
-              className="flex cursor-pointer items-center gap-2 px-4 py-2 hover:bg-slate-50"
+              className="flex cursor-pointer items-center gap-2 px-4 py-2 hover:bg-white/5"
             >
               <input
                 type="checkbox"
                 checked={value.includes(option)}
                 onChange={() => toggle(option)}
-                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded border-white/[0.08] text-violet-600 focus:ring-violet-500"
               />
-              <span className="text-sm text-slate-700">{option}</span>
+              <span className="text-sm text-slate-300">{option}</span>
             </label>
           ))}
         </div>
@@ -101,7 +102,7 @@ function RateConfigStep({
   };
 
   const smallInputClass =
-    "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors text-sm";
+    "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-colors text-sm";
 
   return (
     <div className="space-y-6">
@@ -121,7 +122,7 @@ function RateConfigStep({
       </div>
 
       <div>
-        <p className="text-sm font-medium text-slate-700 mb-3">
+        <p className="text-sm font-medium text-slate-300 mb-3">
           Hourly Rates ({rateConfig.currency})
         </p>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -131,7 +132,7 @@ function RateConfigStep({
               role === "CS" ? "csRate" : role === "Dev" ? "devRate" : "arRate";
             return (
               <div key={role}>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-xs font-medium text-slate-400 mb-1">
                   {ROLE_LABELS[role]} ({role})
                 </label>
                 <div className="relative">
@@ -156,7 +157,7 @@ function RateConfigStep({
       </div>
 
       <div>
-        <p className="text-sm font-medium text-slate-700 mb-3">
+        <p className="text-sm font-medium text-slate-300 mb-3">
           PM & QA Percentages
         </p>
         <p className="text-xs text-slate-500 mb-3">
@@ -165,7 +166,7 @@ function RateConfigStep({
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-400 mb-1">
               {ROLE_LABELS.PM} (PM %)
             </label>
             <div className="relative">
@@ -186,7 +187,7 @@ function RateConfigStep({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-400 mb-1">
               {ROLE_LABELS.QA} (QA %)
             </label>
             <div className="relative">
@@ -324,11 +325,10 @@ export default function QuestionnaireForm({
           </div>
           <div>
             <label className={labelClass}>Potential Start Date</label>
-            <input
-              type="date"
+            <DatePicker
               value={answers.startDate}
-              onChange={(e) => onChange("startDate", e.target.value)}
-              className={inputClass}
+              onChange={(v) => onChange("startDate", v)}
+              placeholder="MM/DD/YYYY"
             />
             <p className="mt-1 text-xs text-slate-500">
               Used to calculate actual calendar dates in the project plan
@@ -350,7 +350,7 @@ export default function QuestionnaireForm({
             </select>
           </div>
           {estimatedEnd && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
               <span className="font-medium">Estimated end date: </span>
               {new Date(estimatedEnd + "T12:00:00").toLocaleDateString(undefined, {
                 year: "numeric",

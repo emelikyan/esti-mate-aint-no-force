@@ -14,17 +14,17 @@ export default function StepIndicator({
   stepLabels,
 }: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-start justify-between">
       {Array.from({ length: totalSteps }).map((_, i) => (
-        <div key={i} className="flex items-center">
+        <div key={i} className="flex items-center flex-1 last:flex-none">
           <div className="flex flex-col items-center">
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors ${
                 i < currentStep
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-violet-600 text-white"
                   : i === currentStep
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-200 text-gray-500"
+                    ? "bg-violet-600 text-white"
+                    : "bg-white/[0.06] text-slate-500"
               }`}
             >
               {i < currentStep ? (
@@ -34,8 +34,8 @@ export default function StepIndicator({
               )}
             </div>
             <span
-              className={`mt-1 hidden text-xs sm:block ${
-                i <= currentStep ? "text-indigo-600 font-medium" : "text-gray-400"
+              className={`mt-1.5 hidden w-16 text-center text-[11px] leading-tight sm:block ${
+                i <= currentStep ? "text-violet-400 font-medium" : "text-slate-500"
               }`}
             >
               {stepLabels[i]}
@@ -43,8 +43,8 @@ export default function StepIndicator({
           </div>
           {i < totalSteps - 1 && (
             <div
-              className={`mx-2 h-0.5 w-8 sm:w-16 ${
-                i < currentStep ? "bg-indigo-600" : "bg-gray-200"
+              className={`mx-1 h-0.5 flex-1 ${
+                i < currentStep ? "bg-violet-600" : "bg-white/[0.06]"
               }`}
             />
           )}

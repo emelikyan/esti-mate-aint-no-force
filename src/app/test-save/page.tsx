@@ -73,8 +73,8 @@ export default function TestSavePage() {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600 mx-auto" />
-        <p className="mt-4 text-gray-600">{status}</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500/25 border-t-indigo-600 mx-auto" />
+        <p className="mt-4 text-slate-400">{status}</p>
       </div>
     </div>
   );

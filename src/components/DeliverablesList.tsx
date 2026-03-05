@@ -17,11 +17,11 @@ const typeIcons: Record<string, typeof Package> = {
 };
 
 const typeColors: Record<string, string> = {
-  software: "bg-blue-50 text-blue-700",
-  document: "bg-purple-50 text-purple-700",
-  design: "bg-pink-50 text-pink-700",
-  infrastructure: "bg-emerald-50 text-emerald-700",
-  other: "bg-gray-100 text-gray-700",
+  software: "bg-violet-500/10 text-violet-400",
+  document: "bg-purple-500/10 text-purple-400",
+  design: "bg-pink-500/10 text-pink-400",
+  infrastructure: "bg-emerald-500/10 text-emerald-400",
+  other: "bg-white/10 text-slate-300",
 };
 
 export default function DeliverablesList({
@@ -39,7 +39,7 @@ export default function DeliverablesList({
 
   return (
     <section>
-      <h3 className="text-xl font-semibold text-gray-900">Deliverables</h3>
+      <h3 className="text-xl font-semibold text-white">Deliverables</h3>
 
       <div className="mt-6 space-y-6">
         {sortedPhases.map((phase) => {
@@ -48,7 +48,7 @@ export default function DeliverablesList({
 
           return (
             <div key={phase.name}>
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
                 {phase.name}
               </h4>
               <div className="mt-2 space-y-2">
@@ -57,14 +57,14 @@ export default function DeliverablesList({
                   return (
                     <div
                       key={i}
-                      className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3"
+                      className="flex items-start gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-3"
                     >
-                      <div className="mt-0.5 shrink-0 rounded-md bg-gray-50 p-1.5">
-                        <Icon className="h-4 w-4 text-gray-500" />
+                      <div className="mt-0.5 shrink-0 rounded-md bg-white/5 p-1.5">
+                        <Icon className="h-4 w-4 text-slate-400" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-white">
                             {d.name}
                           </span>
                           <span
@@ -73,7 +73,7 @@ export default function DeliverablesList({
                             {d.type}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-sm text-gray-600">
+                        <p className="mt-0.5 text-sm text-slate-400">
                           {d.description}
                         </p>
                       </div>
