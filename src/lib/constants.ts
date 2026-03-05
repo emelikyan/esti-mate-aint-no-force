@@ -33,6 +33,9 @@ export const QUESTIONNAIRE_STEPS = [
   },
 ];
 
+/** URL for default practice library seed (used when localStorage is empty). */
+export const PRACTICE_SEED_URL = "/data/practice-seed.json";
+
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".txt"];

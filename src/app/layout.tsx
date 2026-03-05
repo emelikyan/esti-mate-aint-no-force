@@ -31,9 +31,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col bg-[#0a0a1a] text-slate-200 antialiased selection:bg-violet-500/30`}
+        suppressHydrationWarning
       >
         <Header />
         <main className="flex-1">{children}</main>

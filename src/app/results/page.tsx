@@ -20,7 +20,7 @@ import WorkshopsModal from "@/components/WorkshopsModal";
 import ReconfigureRatesModal from "@/components/ReconfigureRatesModal";
 import PresentationModal from "@/components/PresentationModal";
 import { Estimation, PracticeEstimation, CostItem, RoleBreakdown, Workshop, RateConfig } from "@/lib/types";
-import { HOURS_PER_MD, DEFAULT_RATES } from "@/lib/constants";
+import { HOURS_PER_MD, DEFAULT_RATES, PRACTICE_SEED_URL } from "@/lib/constants";
 import { derivePracticeRates } from "@/lib/parse-csv";
 
 const STORAGE_KEY = "practice-estimations";
@@ -251,6 +251,20 @@ export default function ResultsPage() {
       setEstimation(JSON.parse(stored));
     } catch {
       router.push("/");
+    }
+
+    // Seed default practice library when empty (for Save to practice / Refine)
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      fetch(PRACTICE_SEED_URL)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((seed: PracticeEstimation[]) => {
+          if (seed.length > 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+            const derived = derivePracticeRates(seed);
+            if (derived) localStorage.setItem(RATES_KEY, JSON.stringify(derived));
+          }
+        })
+        .catch(() => {});
     }
 
     const cachedWorkshops = sessionStorage.getItem("workshops");

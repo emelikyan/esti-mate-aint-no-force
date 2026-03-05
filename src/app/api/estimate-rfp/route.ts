@@ -1,13 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseDocument } from "@/lib/parse-document";
 import { buildRfpPrompt } from "@/lib/prompts";
-import { generateEstimation, addConfidenceScores } from "@/lib/claude";
 import { PracticeEstimation, RateConfig } from "@/lib/types";
 
 export const runtime = "nodejs";
 
+/** GET returns JSON so you can confirm the route is hit (e.g. fetch("/api/estimate-rfp")) */
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "estimate-rfp route is reachable",
+    hasKey: !!process.env.ANTHROPIC_API_KEY?.trim(),
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the dev server.",
+        },
+        { status: 503 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const startDate = formData.get("startDate") as string | null;
@@ -60,7 +78,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 1: Generate estimation
+    // Step 1: Generate estimation (dynamic import so load errors are caught here)
+    const { generateEstimation, addConfidenceScores } = await import(
+      "@/lib/claude"
+    );
     const prompt = buildRfpPrompt(
       truncatedText,
       startDate || undefined,
@@ -83,8 +104,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ estimation });
   } catch (error) {
     console.error("RFP estimation error:", error);
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to generate estimation. Please try again." },
+      {
+        error:
+          "Failed to generate estimation. Please try again.",
+        detail: message,
+      },
       { status: 500 }
     );
   }

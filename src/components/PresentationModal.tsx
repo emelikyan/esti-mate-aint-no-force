@@ -19,6 +19,8 @@ import {
   MessageCircle,
   FileSpreadsheet,
   ImagePlus,
+  Save,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { Estimation } from "@/lib/types";
@@ -29,6 +31,9 @@ import {
   getDensityLimits,
 } from "@/lib/constants";
 
+const BRANDING_STORAGE_KEY = "presentation-branding";
+const BRANDING_PRESETS_KEY = "presentation-branding-presets";
+
 export interface PresentationBranding {
   primaryColor: string;
   secondaryColor: string;
@@ -36,6 +41,62 @@ export interface PresentationBranding {
   fontId: string;
   fontColor: string;
   logoDataUrl: string | null;
+}
+
+export interface BrandingPreset extends PresentationBranding {
+  id: string;
+  name: string;
+}
+
+/** Built-in presets users can select */
+const BUILTIN_PRESETS: BrandingPreset[] = [
+  { id: "default", name: "Default", primaryColor: "", secondaryColor: "", backgroundColor: "", fontId: "", fontColor: "", logoDataUrl: null },
+  { id: "violet", name: "Violet Professional", primaryColor: "#8B5CF6", secondaryColor: "#6366F1", backgroundColor: "#1E293B", fontId: "sans", fontColor: "#E2E8F0", logoDataUrl: null },
+  { id: "corporate", name: "Corporate Blue", primaryColor: "#2563EB", secondaryColor: "#3B82F6", backgroundColor: "#0F172A", fontId: "modern", fontColor: "#F1F5F9", logoDataUrl: null },
+  { id: "slate", name: "Dark Slate", primaryColor: "#64748B", secondaryColor: "#94A3B8", backgroundColor: "#0F172A", fontId: "sans", fontColor: "#CBD5E1", logoDataUrl: null },
+  { id: "emerald", name: "Emerald", primaryColor: "#10B981", secondaryColor: "#34D399", backgroundColor: "#064E3B", fontId: "sans", fontColor: "#D1FAE5", logoDataUrl: null },
+];
+
+function loadBrandingFromStorage(): Partial<PresentationBranding> {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = localStorage.getItem(BRANDING_STORAGE_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored) as Partial<PresentationBranding>;
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function saveBrandingToStorage(branding: PresentationBranding) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(BRANDING_STORAGE_KEY, JSON.stringify(branding));
+  } catch {
+    // Ignore quota or other storage errors
+  }
+}
+
+function loadBrandingPresets(): BrandingPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(BRANDING_PRESETS_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored) as BrandingPreset[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveBrandingPresets(presets: BrandingPreset[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(BRANDING_PRESETS_KEY, JSON.stringify(presets));
+  } catch {
+    // Ignore quota or other storage errors
+  }
 }
 
 /** Font options for presentation: CSS for preview, standard name for PPTX */
@@ -793,18 +854,58 @@ function SlideContent({
 }
 
 export default function PresentationModal({ estimation, onClose }: PresentationModalProps) {
+  const [savedBranding] = useState(() => loadBrandingFromStorage());
   const [step, setStep] = useState<"style" | "preview">("style");
   const [selectedStyle, setSelectedStyle] = useState<PresentationStyleId>("consultative");
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState("");
-  const [secondaryColor, setSecondaryColor] = useState("");
-  const [backgroundColor, setBackgroundColor] = useState("");
-  const [fontId, setFontId] = useState("");
-  const [fontColor, setFontColor] = useState("");
-  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [primaryColor, setPrimaryColor] = useState(savedBranding.primaryColor ?? "");
+  const [secondaryColor, setSecondaryColor] = useState(savedBranding.secondaryColor ?? "");
+  const [backgroundColor, setBackgroundColor] = useState(savedBranding.backgroundColor ?? "");
+  const [fontId, setFontId] = useState(savedBranding.fontId ?? "");
+  const [fontColor, setFontColor] = useState(savedBranding.fontColor ?? "");
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(savedBranding.logoDataUrl ?? null);
+  const [savedPresets, setSavedPresets] = useState<BrandingPreset[]>(() => loadBrandingPresets());
+  const [savePresetName, setSavePresetName] = useState("");
+  const [showSavePreset, setShowSavePreset] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const totalSlides = 9; // title, summary, metrics, phases, cost, team, risks, deliverables, thank you
+
+  const allPresets: BrandingPreset[] = [...BUILTIN_PRESETS, ...savedPresets];
+
+  const applyPreset = (preset: BrandingPreset) => {
+    setPrimaryColor(preset.primaryColor ?? "");
+    setSecondaryColor(preset.secondaryColor ?? "");
+    setBackgroundColor(preset.backgroundColor ?? "");
+    setFontId(preset.fontId ?? "");
+    setFontColor(preset.fontColor ?? "");
+    setLogoDataUrl(preset.logoDataUrl ?? null);
+  };
+
+  const handleSaveAsPreset = () => {
+    const name = savePresetName.trim() || "My branding";
+    const preset: BrandingPreset = {
+      id: crypto.randomUUID(),
+      name,
+      primaryColor,
+      secondaryColor,
+      backgroundColor,
+      fontId,
+      fontColor,
+      logoDataUrl,
+    };
+    const next = [...savedPresets, preset];
+    setSavedPresets(next);
+    saveBrandingPresets(next);
+    setSavePresetName("");
+    setShowSavePreset(false);
+  };
+
+  const handleDeletePreset = (id: string) => {
+    const next = savedPresets.filter((p) => p.id !== id);
+    setSavedPresets(next);
+    saveBrandingPresets(next);
+  };
 
   const branding: PresentationBranding = {
     primaryColor,
@@ -814,6 +915,10 @@ export default function PresentationModal({ estimation, onClose }: PresentationM
     fontColor,
     logoDataUrl,
   };
+
+  useEffect(() => {
+    saveBrandingToStorage(branding);
+  }, [primaryColor, secondaryColor, backgroundColor, fontId, fontColor, logoDataUrl]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -879,8 +984,85 @@ export default function PresentationModal({ estimation, onClose }: PresentationM
                       Branding (optional)
                     </h3>
                     <p className="text-slate-400 text-sm mb-4">
-                      Set your consulting company colors and logo. They will appear in the presentation and downloaded file.
+                      Select a preset or configure colors and logo. They will appear in the presentation and downloaded file.
                     </p>
+
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Select preset</p>
+                      <div className="flex flex-wrap gap-2">
+                        {allPresets.map((preset) => (
+                          <div
+                            key={preset.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => applyPreset(preset)}
+                            onKeyDown={(e) => e.key === "Enter" && applyPreset(preset)}
+                            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 hover:border-white/20 transition-colors group cursor-pointer"
+                          >
+                            <span
+                              className="w-4 h-4 rounded-full shrink-0 border border-white/20"
+                              style={{ backgroundColor: preset.primaryColor || "#8B5CF6" }}
+                            />
+                            <span>{preset.name}</span>
+                            {savedPresets.some((p) => p.id === preset.id) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePreset(preset.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-red-400 transition-opacity"
+                                aria-label="Delete preset"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-end gap-4 mb-4">
+                      {showSavePreset ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={savePresetName}
+                            onChange={(e) => setSavePresetName(e.target.value)}
+                            placeholder="Preset name"
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none w-40"
+                            onKeyDown={(e) => e.key === "Enter" && handleSaveAsPreset()}
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveAsPreset}
+                            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm text-white hover:bg-violet-500 transition-colors"
+                          >
+                            <Save className="h-4 w-4" />
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setShowSavePreset(false); setSavePresetName(""); }}
+                            className="text-sm text-slate-400 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowSavePreset(true)}
+                          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
+                        >
+                          <Save className="h-4 w-4" />
+                          Save current as preset
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-500 mb-3">Or configure manually:</p>
                     <div className="flex flex-wrap items-end gap-6">
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1.5">Primary color</label>

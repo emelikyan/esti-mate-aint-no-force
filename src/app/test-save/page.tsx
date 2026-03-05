@@ -1,81 +1,697 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { HOURS_PER_MD } from "@/lib/constants";
-import type { Estimation, PracticeEstimation } from "@/lib/types";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  Save,
+  BookOpen,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  Check,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
+import { PracticeEstimation, RateConfig } from "@/lib/types";
+import { DEFAULT_RATES, PRACTICE_SEED_URL } from "@/lib/constants";
+import { PROJECT_TYPES } from "@/lib/constants";
+import {
+  parseCSVRows,
+  aggregateCSVToProject,
+  derivePracticeRates,
+  CSVRow,
+} from "@/lib/parse-csv";
 
 const STORAGE_KEY = "practice-estimations";
 const RATES_KEY = "practice-rates";
 
-const ESTIMATION_JSON = 
-"{\"projectName\": \"E-Commerce Platform for SMB\", \"summary\": \"A comprehensive e-commerce web application built with React, Node.js, and PostgreSQL, featuring product catalog management, shopping cart, Stripe payment integration, order tracking, and admin dashboard. The platform targets small to medium businesses selling physical products online with a clean, responsive interface. Estimated delivery in 22 weeks with a small, experienced team.\", \"phases\": [{\"name\": \"Blueprint\", \"description\": \"Discovery, requirements gathering, technical architecture design, database schema planning, UX/UI design system creation, and project roadmap establishment\", \"durationWeeks\": 4, \"order\": 1}, {\"name\": \"Implementation\", \"description\": \"Core development of frontend and backend systems, database implementation, third-party integrations (Stripe, SendGrid), admin dashboard, and continuous code review\", \"durationWeeks\": 14, \"order\": 2}, {\"name\": \"UAT & Go-Live\", \"description\": \"User acceptance testing, bug fixes, performance optimization, deployment to production, documentation, training, and initial post-launch support\", \"durationWeeks\": 4, \"order\": 3}], \"timeline\": [{\"phase\": \"Blueprint\", \"startWeek\": 1, \"endWeek\": 4, \"startDate\": \"2026-04-01\", \"endDate\": \"2026-04-28\", \"milestones\": [\"Requirements documentation approved\", \"Technical architecture and database schema finalized\", \"UX/UI design system and wireframes completed\", \"Project plan and sprint schedule established\"]}, {\"phase\": \"Implementation\", \"startWeek\": 5, \"endWeek\": 18, \"startDate\": \"2026-04-29\", \"endDate\": \"2026-08-18\", \"milestones\": [\"User authentication and account management completed\", \"Product catalog and search functionality live\", \"Shopping cart and checkout with Stripe integration operational\", \"Admin dashboard with inventory management functional\", \"Order tracking and email notifications working\", \"Mobile responsive design implemented across all pages\"]}, {\"phase\": \"UAT & Go-Live\", \"startWeek\": 19, \"endWeek\": 22, \"startDate\": \"2026-08-19\", \"endDate\": \"2026-09-15\", \"milestones\": [\"UAT completed with stakeholder sign-off\", \"All critical and high-priority bugs resolved\", \"Production deployment successful\", \"Admin training completed\", \"Documentation delivered\", \"30-day post-launch support period initiated\"]}], \"costBreakdown\": [{\"phase\": \"Blueprint\", \"category\": \"Requirements Analysis & Discovery\", \"description\": \"Stakeholder interviews, business requirements gathering, competitive analysis, feature prioritization, and functional specification documentation\", \"roles\": [{\"role\": \"CS\", \"hours\": 48, \"rate\": 150, \"cost\": 7200}, {\"role\": \"AR\", \"hours\": 32, \"rate\": 175, \"cost\": 5600}, {\"role\": \"PM\", \"hours\": 12, \"rate\": 160, \"cost\": 1920}], \"totalHours\": 92, \"totalMD\": 11.5, \"totalCost\": 14720, \"confidence\": 78, \"startDate\": \"2026-04-01\", \"endDate\": \"2026-04-10\", \"optimisticHours\": 72, \"pessimisticHours\": 115, \"confirmed\": false}, {\"phase\": \"Blueprint\", \"category\": \"Technical Architecture & Database Design\", \"description\": \"System architecture design, technology stack validation, database schema design, API architecture, scalability planning, and security framework definition\", \"roles\": [{\"role\": \"AR\", \"hours\": 64, \"rate\": 175, \"cost\": 11200}, {\"role\": \"Dev\", \"hours\": 24, \"rate\": 130, \"cost\": 3120}, {\"role\": \"PM\", \"hours\": 13, \"rate\": 158, \"cost\": 2054}], \"totalHours\": 101, \"totalMD\": 12.625, \"totalCost\": 16374, \"confidence\": 72, \"startDate\": \"2026-04-06\", \"endDate\": \"2026-04-17\", \"optimisticHours\": 78, \"pessimisticHours\": 135, \"confirmed\": false}, {\"phase\": \"Blueprint\", \"category\": \"UX/UI Design\", \"description\": \"User research, wireframing, high-fidelity mockups, design system creation, responsive design layouts, brand integration, and prototype development\", \"roles\": [{\"role\": \"CS\", \"hours\": 96, \"rate\": 150, \"cost\": 14400}, {\"role\": \"PM\", \"hours\": 14, \"rate\": 150, \"cost\": 2100}, {\"role\": \"QA\", \"hours\": 19, \"rate\": 150, \"cost\": 2850}], \"totalHours\": 129, \"totalMD\": 16.125, \"totalCost\": 19350, \"confidence\": 65, \"startDate\": \"2026-04-08\", \"endDate\": \"2026-04-28\", \"optimisticHours\": 95, \"pessimisticHours\": 170, \"confirmed\": false}, {\"phase\": \"Blueprint\", \"category\": \"Project Planning & Setup\", \"description\": \"Sprint planning, development environment setup, CI/CD pipeline configuration, project management tools setup, and team onboarding\", \"roles\": [{\"role\": \"PM\", \"hours\": 32, \"rate\": 150, \"cost\": 4800}, {\"role\": \"AR\", \"hours\": 24, \"rate\": 175, \"cost\": 4200}, {\"role\": \"Dev\", \"hours\": 16, \"rate\": 130, \"cost\": 2080}], \"totalHours\": 72, \"totalMD\": 9, \"totalCost\": 11080, \"confidence\": 82, \"startDate\": \"2026-04-20\", \"endDate\": \"2026-04-28\", \"optimisticHours\": 58, \"pessimisticHours\": 90, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"User Authentication & Account Management\", \"description\": \"User registration, login/logout, password reset, email verification, profile management, session management, and JWT implementation\", \"roles\": [{\"role\": \"Dev\", \"hours\": 96, \"rate\": 130, \"cost\": 12480}, {\"role\": \"AR\", \"hours\": 16, \"rate\": 175, \"cost\": 2800}, {\"role\": \"PM\", \"hours\": 17, \"rate\": 138, \"cost\": 2346}, {\"role\": \"QA\", \"hours\": 22, \"rate\": 138, \"cost\": 3036}], \"totalHours\": 151, \"totalMD\": 18.875, \"totalCost\": 20662, \"confidence\": 88, \"startDate\": \"2026-04-29\", \"endDate\": \"2026-05-15\", \"optimisticHours\": 120, \"pessimisticHours\": 180, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Product Catalog & Search System\", \"description\": \"Product listing pages, product detail pages, category hierarchy, advanced search with filters, pagination, product image management, and SEO optimization\", \"roles\": [{\"role\": \"Dev\", \"hours\": 128, \"rate\": 130, \"cost\": 16640}, {\"role\": \"AR\", \"hours\": 24, \"rate\": 175, \"cost\": 4200}, {\"role\": \"PM\", \"hours\": 23, \"rate\": 139, \"cost\": 3197}, {\"role\": \"QA\", \"hours\": 30, \"rate\": 139, \"cost\": 4170}], \"totalHours\": 205, \"totalMD\": 25.625, \"totalCost\": 28207, \"confidence\": 75, \"startDate\": \"2026-05-06\", \"endDate\": \"2026-06-02\", \"optimisticHours\": 160, \"pessimisticHours\": 270, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Shopping Cart & Checkout\", \"description\": \"Cart management (add/remove/update), cart persistence, checkout flow, guest checkout option, shipping address forms, order summary, and cart abandonment handling\", \"roles\": [{\"role\": \"Dev\", \"hours\": 104, \"rate\": 130, \"cost\": 13520}, {\"role\": \"AR\", \"hours\": 16, \"rate\": 175, \"cost\": 2800}, {\"role\": \"PM\", \"hours\": 18, \"rate\": 138, \"cost\": 2484}, {\"role\": \"QA\", \"hours\": 24, \"rate\": 138, \"cost\": 3312}], \"totalHours\": 162, \"totalMD\": 20.25, \"totalCost\": 22116, \"confidence\": 80, \"startDate\": \"2026-05-27\", \"endDate\": \"2026-06-19\", \"optimisticHours\": 130, \"pessimisticHours\": 200, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Payment Integration & Order Processing\", \"description\": \"Stripe payment gateway integration, payment form, payment processing, order creation, payment confirmation, refund handling, and PCI compliance measures\", \"roles\": [{\"role\": \"Dev\", \"hours\": 88, \"rate\": 130, \"cost\": 11440}, {\"role\": \"AR\", \"hours\": 24, \"rate\": 175, \"cost\": 4200}, {\"role\": \"PM\", \"hours\": 17, \"rate\": 142, \"cost\": 2414}, {\"role\": \"QA\", \"hours\": 22, \"rate\": 142, \"cost\": 3124}], \"totalHours\": 151, \"totalMD\": 18.875, \"totalCost\": 21178, \"confidence\": 68, \"startDate\": \"2026-06-10\", \"endDate\": \"2026-06-30\", \"optimisticHours\": 110, \"pessimisticHours\": 220, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Order Management & Tracking\", \"description\": \"Order history, order details view, order status tracking, order confirmation emails, shipping notifications, and customer order dashboard\", \"roles\": [{\"role\": \"Dev\", \"hours\": 80, \"rate\": 130, \"cost\": 10400}, {\"role\": \"AR\", \"hours\": 16, \"rate\": 175, \"cost\": 2800}, {\"role\": \"PM\", \"hours\": 14, \"rate\": 138, \"cost\": 1932}, {\"role\": \"QA\", \"hours\": 19, \"rate\": 138, \"cost\": 2622}], \"totalHours\": 129, \"totalMD\": 16.125, \"totalCost\": 17754, \"confidence\": 85, \"startDate\": \"2026-06-24\", \"endDate\": \"2026-07-14\", \"optimisticHours\": 100, \"pessimisticHours\": 155, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Admin Dashboard & Inventory Management\", \"description\": \"Admin authentication, product CRUD operations, inventory tracking, bulk product upload, category management, order management interface, sales analytics, and user management\", \"roles\": [{\"role\": \"Dev\", \"hours\": 144, \"rate\": 130, \"cost\": 18720}, {\"role\": \"AR\", \"hours\": 24, \"rate\": 175, \"cost\": 4200}, {\"role\": \"PM\", \"hours\": 25, \"rate\": 139, \"cost\": 3475}, {\"role\": \"QA\", \"hours\": 34, \"rate\": 139, \"cost\": 4726}], \"totalHours\": 227, \"totalMD\": 28.375, \"totalCost\": 31121, \"confidence\": 70, \"startDate\": \"2026-07-01\", \"endDate\": \"2026-08-04\", \"optimisticHours\": 170, \"pessimisticHours\": 300, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Email Notifications & SendGrid Integration\", \"description\": \"SendGrid integration, email templates, order confirmation emails, shipping notifications, password reset emails, welcome emails, and email logging\", \"roles\": [{\"role\": \"Dev\", \"hours\": 56, \"rate\": 130, \"cost\": 7280}, {\"role\": \"AR\", \"hours\": 8, \"rate\": 175, \"cost\": 1400}, {\"role\": \"PM\", \"hours\": 10, \"rate\": 138, \"cost\": 1380}, {\"role\": \"QA\", \"hours\": 13, \"rate\": 138, \"cost\": 1794}], \"totalHours\": 87, \"totalMD\": 10.875, \"totalCost\": 11854, \"confidence\": 90, \"startDate\": \"2026-07-15\", \"endDate\": \"2026-07-29\", \"optimisticHours\": 70, \"pessimisticHours\": 105, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Responsive Design & Mobile Optimization\", \"description\": \"Mobile-first responsive layouts, cross-browser testing, touch interaction optimization, performance optimization for mobile, and progressive web app features\", \"roles\": [{\"role\": \"Dev\", \"hours\": 88, \"rate\": 130, \"cost\": 11440}, {\"role\": \"CS\", \"hours\": 24, \"rate\": 150, \"cost\": 3600}, {\"role\": \"PM\", \"hours\": 17, \"rate\": 135, \"cost\": 2295}, {\"role\": \"QA\", \"hours\": 22, \"rate\": 135, \"cost\": 2970}], \"totalHours\": 151, \"totalMD\": 18.875, \"totalCost\": 20305, \"confidence\": 62, \"startDate\": \"2026-07-22\", \"endDate\": \"2026-08-11\", \"optimisticHours\": 105, \"pessimisticHours\": 220, \"confirmed\": false}, {\"phase\": \"Implementation\", \"category\": \"Security Implementation & Data Protection\", \"description\": \"Input validation, SQL injection prevention, XSS protection, CSRF tokens, secure headers, data encryption, GDPR compliance measures, and security audit\", \"roles\": [{\"role\": \"AR\", \"hours\": 48, \"rate\": 175, \"cost\": 8400}, {\"role\": \"Dev\", \"hours\": 56, \"rate\": 130, \"cost\": 7280}, {\"role\": \"PM\", \"hours\": 16, \"rate\": 144, \"cost\": 2304}, {\"role\": \"QA\", \"hours\": 21, \"rate\": 144, \"cost\": 3024}], \"totalHours\": 141, \"totalMD\": 17.625, \"totalCost\": 21008, \"confidence\": 58, \"startDate\": \"2026-07-29\", \"endDate\": \"2026-08-18\", \"optimisticHours\": 100, \"pessimisticHours\": 240, \"confirmed\": false}, {\"phase\": \"UAT & Go-Live\", \"category\": \"User Acceptance Testing\", \"description\": \"Test case creation, UAT execution with stakeholders, functionality verification, usability testing, cross-browser testing, and mobile device testing\", \"roles\": [{\"role\": \"QA\", \"hours\": 96, \"rate\": 130, \"cost\": 12480}, {\"role\": \"PM\", \"hours\": 32, \"rate\": 130, \"cost\": 4160}, {\"role\": \"Dev\", \"hours\": 24, \"rate\": 130, \"cost\": 3120}], \"totalHours\": 152, \"totalMD\": 19, \"totalCost\": 19760, \"confidence\": 75, \"startDate\": \"2026-08-19\", \"endDate\": \"2026-09-01\", \"optimisticHours\": 120, \"pessimisticHours\": 195, \"confirmed\": false}, {\"phase\": \"UAT & Go-Live\", \"category\": \"Bug Fixes & Refinements\", \"description\": \"Critical and high-priority bug resolution, performance optimization, UI/UX refinements based on feedback, and final code review\", \"roles\": [{\"role\": \"Dev\", \"hours\": 80, \"rate\": 130, \"cost\": 10400}, {\"role\": \"QA\", \"hours\": 40, \"rate\": 130, \"cost\": 5200}, {\"role\": \"PM\", \"hours\": 18, \"rate\": 130, \"cost\": 2340}], \"totalHours\": 138, \"totalMD\": 17.25, \"totalCost\": 17940, \"confidence\": 45, \"startDate\": \"2026-08-26\", \"endDate\": \"2026-09-08\", \"optimisticHours\": 80, \"pessimisticHours\": 280, \"confirmed\": false}, {\"phase\": \"UAT & Go-Live\", \"category\": \"Production Deployment & Infrastructure\", \"description\": \"Production server setup, database migration, SSL certificate configuration, CDN setup, monitoring tools configuration, backup procedures, and go-live execution\", \"roles\": [{\"role\": \"AR\", \"hours\": 48, \"rate\": 175, \"cost\": 8400}, {\"role\": \"Dev\", \"hours\": 32, \"rate\": 130, \"cost\": 4160}, {\"role\": \"PM\", \"hours\": 12, \"rate\": 146, \"cost\": 1752}, {\"role\": \"QA\", \"hours\": 16, \"rate\": 146, \"cost\": 2336}], \"totalHours\": 108, \"totalMD\": 13.5, \"totalCost\": 16648, \"confidence\": 70, \"startDate\": \"2026-09-02\", \"endDate\": \"2026-09-11\", \"optimisticHours\": 85, \"pessimisticHours\": 155, \"confirmed\": false}, {\"phase\": \"UAT & Go-Live\", \"category\": \"Documentation & Training\", \"description\": \"Technical documentation, API documentation, admin user guide, end-user help documentation, video tutorials, and admin training sessions\", \"roles\": [{\"role\": \"CS\", \"hours\": 56, \"rate\": 150, \"cost\": 8400}, {\"role\": \"PM\", \"hours\": 24, \"rate\": 150, \"cost\": 3600}, {\"role\": \"Dev\", \"hours\": 16, \"rate\": 130, \"cost\": 2080}], \"totalHours\": 96, \"totalMD\": 12, \"totalCost\": 14080, \"confidence\": 80, \"startDate\": \"2026-09-03\", \"endDate\": \"2026-09-15\", \"optimisticHours\": 75, \"pessimisticHours\": 120, \"confirmed\": false}, {\"phase\": \"UAT & Go-Live\", \"category\": \"Post-Launch Support\", \"description\": \"30-day post-launch monitoring, immediate bug fixes, performance monitoring, user support, and knowledge transfer to client team\", \"roles\": [{\"role\": \"Dev\", \"hours\": 40, \"rate\": 130, \"cost\": 5200}, {\"role\": \"QA\", \"hours\": 24, \"rate\": 130, \"cost\": 3120}, {\"role\": \"PM\", \"hours\": 16, \"rate\": 130, \"cost\": 2080}], \"totalHours\": 80, \"totalMD\": 10, \"totalCost\": 10400, \"confidence\": 50, \"startDate\": \"2026-09-09\", \"endDate\": \"2026-09-30\", \"optimisticHours\": 45, \"pessimisticHours\": 180, \"confirmed\": false}], \"totalCost\": {\"amount\": 336557, \"currency\": \"USD\"}, \"team\": [{\"role\": \"Senior Full-Stack Developer\", \"count\": 2, \"responsibilities\": [\"Frontend development with React\", \"Backend API development with Node.js\", \"Database design and PostgreSQL implementation\", \"Third-party integration (Stripe, SendGrid)\", \"Code reviews and quality assurance\"], \"requiredSkills\": [\"React.js and modern JavaScript (ES6+)\", \"Node.js and Express.js\", \"PostgreSQL and SQL\", \"RESTful API design\", \"Git version control\", \"Responsive web design\"]}, {\"role\": \"Solutions Architect\", \"count\": 1, \"responsibilities\": [\"System architecture design\", \"Database schema design\", \"Security framework implementation\", \"Scalability planning\", \"Technology stack decisions\", \"Technical risk assessment\"], \"requiredSkills\": [\"Microservices and distributed systems\", \"Cloud infrastructure (AWS/Azure/GCP)\", \"Database optimization\", \"Security best practices\", \"System design patterns\", \"E-commerce platform experience\"]}, {\"role\": \"UX/UI Designer\", \"count\": 1, \"responsibilities\": [\"User research and persona development\", \"Wireframing and prototyping\", \"High-fidelity UI design\", \"Design system creation\", \"Responsive design layouts\", \"Usability testing\"], \"requiredSkills\": [\"Figma or Sketch\", \"User-centered design principles\", \"Responsive design\", \"E-commerce UX patterns\", \"Accessibility standards (WCAG)\", \"HTML/CSS knowledge\"]}, {\"role\": \"Project Manager\", \"count\": 1, \"responsibilities\": [\"Project planning and scheduling\", \"Stakeholder communication\", \"Risk management\", \"Budget tracking\", \"Sprint planning and facilitation\", \"Quality assurance oversight\"], \"requiredSkills\": [\"Agile/Scrum methodologies\", \"Project management tools (Jira, Asana)\", \"Technical background\", \"Stakeholder management\", \"Risk assessment\", \"E-commerce domain knowledge\"]}, {\"role\": \"QA Engineer\", \"count\": 1, \"responsibilities\": [\"Test plan creation\", \"Manual and automated testing\", \"Bug tracking and reporting\", \"UAT coordination\", \"Performance testing\", \"Cross-browser and device testing\"], \"requiredSkills\": [\"Test automation (Jest, Cypress, Selenium)\", \"Manual testing methodologies\", \"Bug tracking tools\", \"API testing\", \"Performance testing tools\", \"E-commerce testing experience\"]}, {\"role\": \"DevOps Engineer\", \"count\": 1, \"responsibilities\": [\"CI/CD pipeline setup\", \"Production infrastructure management\", \"Monitoring and logging implementation\", \"Deployment automation\", \"Backup and disaster recovery\", \"Security hardening\"], \"requiredSkills\": [\"Docker and containerization\", \"CI/CD tools (Jenkins, GitHub Actions)\", \"Cloud platforms (AWS/Azure/GCP)\", \"Nginx/Apache configuration\", \"Monitoring tools (DataDog, New Relic)\", \"Infrastructure as Code\"]}], \"risks\": [{\"title\": \"Stripe Integration Complexity\", \"description\": \"Payment gateway integration may encounter unexpected compliance requirements, webhook handling complexities, or testing limitations in sandbox environment\", \"severity\": \"high\", \"likelihood\": \"medium\", \"mitigation\": \"Early spike on Stripe API, thorough documentation review, allocate buffer time for payment testing, implement comprehensive error handling and logging\"}, {\"title\": \"Scope Creep\", \"description\": \"Additional feature requests during development could expand beyond initial requirements, impacting timeline and budget\", \"severity\": \"high\", \"likelihood\": \"high\", \"mitigation\": \"Strict change control process, formal sign-off on requirements, maintain feature backlog for post-launch phase, clear communication about impact of changes\"}, {\"title\": \"Performance at Scale\", \"description\": \"Application may experience performance issues with large product catalogs (10,000+ products) or high concurrent user loads\", \"severity\": \"medium\", \"likelihood\": \"medium\", \"mitigation\": \"Implement caching strategy early, database indexing optimization, load testing during UAT phase, CDN for static assets, pagination and lazy loading\"}, {\"title\": \"Third-Party Service Downtime\", \"description\": \"Dependencies on Stripe or SendGrid could cause service disruptions if these providers experience outages\", \"severity\": \"medium\", \"likelihood\": \"low\", \"mitigation\": \"Implement graceful degradation, queue-based email system with retry logic, clear error messaging to users, monitoring and alerting for service health\"}, {\"title\": \"Mobile Responsiveness Challenges\", \"description\": \"Complex e-commerce flows may be difficult to optimize for small mobile screens while maintaining usability\", \"severity\": \"medium\", \"likelihood\": \"medium\", \"mitigation\": \"Mobile-first design approach, regular testing on actual devices, progressive disclosure of information, simplified mobile checkout flow\"}, {\"title\": \"Security Vulnerabilities\", \"description\": \"E-commerce platforms are attractive targets for attacks; potential vulnerabilities in payment handling, user data protection, or authentication\", \"severity\": \"critical\", \"likelihood\": \"medium\", \"mitigation\": \"Security-first development approach, regular code reviews, penetration testing, OWASP compliance, security audit before launch, PCI DSS compliance measures\"}, {\"title\": \"Data Migration and Import\", \"description\": \"If client has existing product data, migration complexity and data quality issues could delay launch\", \"severity\": \"medium\", \"likelihood\": \"medium\", \"mitigation\": \"Early assessment of existing data, develop robust import tools, data validation scripts, staged migration approach, comprehensive testing of migrated data\"}, {\"title\": \"Browser Compatibility Issues\", \"description\": \"Inconsistent behavior across different browsers (especially older versions of IE or Safari) could require additional development effort\", \"severity\": \"low\", \"likelihood\": \"medium\", \"mitigation\": \"Define supported browsers upfront, use modern CSS/JS frameworks with polyfills, automated cross-browser testing, progressive enhancement strategy\"}, {\"title\": \"Insufficient Requirements Clarity\", \"description\": \"Ambiguous or incomplete requirements could lead to rework and misaligned expectations\", \"severity\": \"high\", \"likelihood\": \"medium\", \"mitigation\": \"Comprehensive discovery phase, interactive prototypes for validation, regular demo sessions, documented acceptance criteria, stakeholder sign-offs at phase gates\"}, {\"title\": \"Team Availability and Resource Constraints\", \"description\": \"Key team members may become unavailable due to illness, competing priorities, or turnover during the project\", \"severity\": \"medium\", \"likelihood\": \"low\", \"mitigation\": \"Knowledge sharing and documentation, pair programming for critical components, maintain bench of backup resources, cross-training team members\"}], \"deliverables\": [{\"name\": \"Requirements Specification Document\", \"description\": \"Comprehensive functional and non-functional requirements, user stories, acceptance criteria, and business rules\", \"phase\": \"Blueprint\", \"type\": \"document\"}, {\"name\": \"Technical Architecture Document\", \"description\": \"System architecture diagrams, database schema, API specifications, technology stack rationale, security architecture, and integration specifications\", \"phase\": \"Blueprint\", \"type\": \"document\"}, {\"name\": \"UX/UI Design System\", \"description\": \"Wireframes, high-fidelity mockups, interactive prototypes, design system components, style guide, and responsive layouts for all pages\", \"phase\": \"Blueprint\", \"type\": \"design\"}, {\"name\": \"Project Plan and Timeline\", \"description\": \"Detailed sprint plan, resource allocation, milestone schedule, risk register, and communication plan\", \"phase\": \"Blueprint\", \"type\": \"document\"}, {\"name\": \"Customer-Facing Web Application\", \"description\": \"Fully functional e-commerce platform with product browsing, search, cart, checkout, user accounts, and order tracking\", \"phase\": \"Implementation\", \"type\": \"software\"}, {\"name\": \"Admin Dashboard Application\", \"description\": \"Complete admin interface for product management, inventory control, order processing, user management, and analytics\", \"phase\": \"Implementation\", \"type\": \"software\"}, {\"name\": \"RESTful API\", \"description\": \"Backend API with comprehensive endpoints for all platform functionality, authentication, and third-party integrations\", \"phase\": \"Implementation\", \"type\": \"software\"}, {\"name\": \"Database Implementation\", \"description\": \"PostgreSQL database with optimized schema, indexes, stored procedures, and data migration scripts\", \"phase\": \"Implementation\", \"type\": \"software\"}, {\"name\": \"Production Infrastructure\", \"description\": \"Deployed production environment with web server, application server, database server, CDN, SSL certificates, and monitoring\", \"phase\": \"UAT & Go-Live\", \"type\": \"infrastructure\"}, {\"name\": \"Test Documentation and Results\", \"description\": \"Test plans, test cases, UAT results, bug reports, performance test results, and security audit report\", \"phase\": \"UAT & Go-Live\", \"type\": \"document\"}, {\"name\": \"Technical Documentation\", \"description\": \"API documentation, deployment guide, database schema documentation, architecture diagrams, and code documentation\", \"phase\": \"UAT & Go-Live\", \"type\": \"document\"}, {\"name\": \"User Documentation and Training Materials\", \"description\": \"Admin user guide, customer help documentation, video tutorials, FAQs, and training session recordings\", \"phase\": \"UAT & Go-Live\", \"type\": \"document\"}], \"assumptions\": [\"Client will provide all product content (descriptions, images, pricing) in a structured format ready for import\", \"A single default currency (USD) and language (English) will be supported initially; multi-currency/language is out of scope\", \"Stripe will be used in standard mode; custom payment flows or advanced fraud detection features are not included\", \"Product catalog will contain fewer than 10,000 SKUs at launch; larger catalogs may require additional optimization\", \"Client has existing domain name and will handle DNS configuration with provided guidance\", \"Shipping calculation will be basic (flat rate, free shipping thresholds); complex carrier integrations are out of scope\", \"Tax calculation will be simple percentage-based; integration with tax services like Avalara is not included\", \"Client will provide brand assets (logo, colors, fonts) and any existing brand guidelines\", \"Standard web hosting environment will be sufficient; specialized compliance requirements (e.g., HIPAA) are not needed\", \"Post-launch support covers bug fixes and minor adjustments, not new feature development\"], \"limitations\": [\"Advanced product variations (e.g., size, color) will be supported with basic implementation; complex variant matrices may require customization\", \"Inventory management is single-location only; multi-warehouse support is not included in this scope\", \"No mobile native applications (iOS/Android); responsive web design provides mobile access\", \"Customer support features like live chat are not included; can be added via third-party integrations post-launch\", \"Advanced marketing features (loyalty programs, complex promotions, gift cards) are not in initial scope\", \"Multi-vendor or marketplace functionality is not included; platform supports single business owner only\"], \"customComponents\": [{\"name\": \"Product Search Engine\", \"description\": \"Full-text search with filters for category, price range, attributes; includes autocomplete, search suggestions, and results ranking\", \"complexity\": \"high\", \"estimatedHours\": 72}, {\"name\": \"Shopping Cart Manager\", \"description\": \"Persistent cart across sessions, cart calculations (subtotal, tax, shipping), quantity updates, cart abandonment tracking, and guest cart handling\", \"complexity\": \"medium\", \"estimatedHours\": 56}, {\"name\": \"Checkout Flow System\", \"description\": \"Multi-step checkout process with address validation, shipping method selection, payment processing, and order confirmation\", \"complexity\": \"high\", \"estimatedHours\": 80}, {\"name\": \"User Authentication Module\", \"description\": \"JWT-based authentication, role-based access control, password reset, email verification, session management, and OAuth preparation\", \"complexity\": \"medium\", \"estimatedHours\": 64}, {\"name\": \"Order Management System\", \"description\": \"Order creation, status tracking, order history, invoice generation, refund processing, and order notifications\", \"complexity\": \"high\", \"estimatedHours\": 96}, {\"name\": \"Admin Product Manager\", \"description\": \"CRUD operations for products, bulk upload via CSV, image management, category assignment, inventory tracking, and product variants\", \"complexity\": \"high\", \"estimatedHours\": 88}, {\"name\": \"Stripe Payment Integration\", \"description\": \"Payment intent creation, webhook handling, payment confirmation, error handling, refund processing, and PCI-compliant token handling\", \"complexity\": \"high\", \"estimatedHours\": 64}, {\"name\": \"Email Notification Engine\", \"description\": \"SendGrid integration, template management, triggered emails (order confirmation, shipping, password reset), email queue, and delivery tracking\", \"complexity\": \"medium\", \"estimatedHours\": 48}, {\"name\": \"Admin Dashboard Analytics\", \"description\": \"Sales reports, revenue charts, top products, order statistics, customer analytics, and exportable reports\", \"complexity\": \"medium\", \"estimatedHours\": 56}, {\"name\": \"Product Image Management\", \"description\": \"Multiple image upload, image optimization, thumbnail generation, image gallery, primary image selection, and CDN integration\", \"complexity\": \"medium\", \"estimatedHours\": 40}, {\"name\": \"Inventory Tracking System\", \"description\": \"Stock level monitoring, low stock alerts, automatic inventory updates on orders, inventory history, and stock reservation during checkout\", \"complexity\": \"medium\", \"estimatedHours\": 52}, {\"name\": \"Customer Account Portal\", \"description\": \"Profile management, order history view, address book, password change, email preferences, and wishlist functionality\", \"complexity\": \"medium\", \"estimatedHours\": 64}]}";
+const emptyForm: Omit<PracticeEstimation, "id"> = {
+  projectName: "",
+  projectType: "",
+  description: "",
+  actualTimeline: "",
+  actualCost: 0,
+  teamSize: 0,
+  techStack: "",
+  lessonsLearned: "",
+};
 
-export default function TestSavePage() {
+export default function PracticePage() {
   const router = useRouter();
-  const [status, setStatus] = useState("Saving...");
+  const [practices, setPractices] = useState<PracticeEstimation[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
+  // CSV upload state
+  const [csvRows, setCsvRows] = useState<CSVRow[] | null>(null);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvProjectName, setCsvProjectName] = useState("");
+  const [csvLoading, setCsvLoading] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    try {
-      const estimation: Estimation = JSON.parse(ESTIMATION_JSON);
-
-      // 1. Write to sessionStorage so /results can read it
-      sessionStorage.setItem("estimation", ESTIMATION_JSON);
-
-      // 2. Build practice entry
-      const allRoles = estimation.costBreakdown.flatMap((i) => i.roles || []);
-      function sumRole(role: string): number {
-        return allRoles.filter((r) => r.role === role).reduce((s, r) => s + r.hours, 0);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        setPractices(JSON.parse(stored));
+        return;
+      } catch {
+        // ignore, fall through to seed
       }
-      const csHours = sumRole("CS");
-      const devHours = sumRole("Dev");
-      const arHours = sumRole("AR");
-      const pmHours = sumRole("PM");
-      const qaHours = sumRole("QA");
-      const totalWeeks = Math.max(...estimation.timeline.map((t) => t.endWeek));
-      const teamSize = estimation.team.reduce((s, t) => s + t.count, 0);
-
-      const practice: PracticeEstimation = {
-        id: crypto.randomUUID(),
-        projectName: estimation.projectName,
-        projectType: "Web Application",
-        description: estimation.summary,
-        actualTimeline: totalWeeks + " weeks",
-        actualCost: estimation.totalCost.amount,
-        teamSize,
-        techStack: "React, Node.js, PostgreSQL",
-        lessonsLearned: "",
-        csMD: csHours > 0 ? +(csHours / HOURS_PER_MD).toFixed(1) : undefined,
-        devMD: devHours > 0 ? +(devHours / HOURS_PER_MD).toFixed(1) : undefined,
-        arMD: arHours > 0 ? +(arHours / HOURS_PER_MD).toFixed(1) : undefined,
-        pmMD: pmHours > 0 ? +(pmHours / HOURS_PER_MD).toFixed(1) : undefined,
-        qaMD: qaHours > 0 ? +(qaHours / HOURS_PER_MD).toFixed(1) : undefined,
-        totalMD: +((csHours + devHours + arHours + pmHours + qaHours) / HOURS_PER_MD).toFixed(1),
-        fullEstimation: ESTIMATION_JSON,
-      };
-
-      // 3. Add to localStorage practice library
-      let practices: PracticeEstimation[] = [];
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try { practices = JSON.parse(stored); } catch {}
-      }
-      practices.push(practice);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(practices));
-
-      setStatus("Saved! Redirecting to results...");
-      setTimeout(() => router.push("/results"), 1000);
-    } catch (err) {
-      setStatus("Error: " + (err as Error).message);
     }
-  }, [router]);
+    // No local data — load default practice library from seed
+    fetch(PRACTICE_SEED_URL)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((seed: PracticeEstimation[]) => {
+        if (seed.length > 0) {
+          setPractices(seed);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+          const derived = derivePracticeRates(seed);
+          if (derived) localStorage.setItem(RATES_KEY, JSON.stringify(derived));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const save = (updated: PracticeEstimation[]) => {
+    setPractices(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    const derived = derivePracticeRates(updated);
+    if (derived) {
+      localStorage.setItem(RATES_KEY, JSON.stringify(derived));
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!form.projectName || !form.description) return;
+
+    if (editingId) {
+      save(
+        practices.map((p) =>
+          p.id === editingId ? { ...p, ...form, id: editingId } : p
+        )
+      );
+      setEditingId(null);
+    } else {
+      save([...practices, { ...form, id: crypto.randomUUID() }]);
+    }
+    setForm(emptyForm);
+    setShowForm(false);
+  };
+
+  const handleEdit = (p: PracticeEstimation) => {
+    setForm({
+      projectName: p.projectName,
+      projectType: p.projectType,
+      description: p.description,
+      actualTimeline: p.actualTimeline,
+      actualCost: p.actualCost,
+      teamSize: p.teamSize,
+      techStack: p.techStack,
+      lessonsLearned: p.lessonsLearned,
+    });
+    setEditingId(p.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => {
+    save(practices.filter((p) => p.id !== id));
+  };
+
+  const handleCancel = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  // CSV handlers
+  const handleCsvSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const name = file.name;
+    setCsvFileName(name);
+    // Default project name = filename without extension
+    setCsvProjectName(name.replace(/\.csv$/i, ""));
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const rows = parseCSVRows(text);
+      if (rows.length > 0) {
+        setCsvRows(rows);
+      } else {
+        setCsvRows(null);
+        alert(
+          "No valid rows found in CSV. Make sure the file has a header row with recognizable column names."
+        );
+      }
+    };
+    reader.readAsText(file);
+
+    e.target.value = "";
+  };
+
+  const handleCsvImport = async () => {
+    if (!csvRows || !csvProjectName.trim()) return;
+
+    setCsvLoading(true);
+    try {
+      // Load rate config from localStorage
+      let rateConfig: RateConfig = DEFAULT_RATES;
+      const storedRates = localStorage.getItem("rate-config");
+      if (storedRates) {
+        try {
+          rateConfig = JSON.parse(storedRates);
+        } catch {
+          // use defaults
+        }
+      }
+
+      const res = await fetch("/api/estimate-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          csvRows,
+          projectName: csvProjectName.trim(),
+          rateConfig,
+        }),
+      });
+
+      if (!res.ok) throw new Error("API request failed");
+
+      const { estimation } = await res.json();
+
+      // Create practice record with fullEstimation
+      const project = aggregateCSVToProject(csvRows, csvProjectName.trim());
+      project.fullEstimation = JSON.stringify(estimation);
+      save([...practices, project]);
+    } catch (err) {
+      console.error("CSV estimation error:", err);
+      // Fall back to current behavior (save without full estimation)
+      const project = aggregateCSVToProject(csvRows, csvProjectName.trim());
+      save([...practices, project]);
+    } finally {
+      setCsvLoading(false);
+      setCsvRows(null);
+      setCsvFileName("");
+      setCsvProjectName("");
+    }
+  };
+
+  const handleCsvCancel = () => {
+    setCsvRows(null);
+    setCsvFileName("");
+    setCsvProjectName("");
+  };
+
+  const handleOpenEstimation = (p: PracticeEstimation) => {
+    if (!p.fullEstimation) return;
+    sessionStorage.setItem("estimation", p.fullEstimation);
+    router.push("/results");
+  };
+
+  const handleExportSeed = () => {
+    const json = JSON.stringify(practices, null, 2);
+    const blob = new Blob([json + "\n"], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "practice-seed.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const inputClass =
+    "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-colors text-sm";
+  const labelClass = "block text-sm font-medium text-slate-300 mb-1";
+
+  // Compute CSV totals for the footer
+  const csvTotalRow = csvRows?.find((r) => r.isTotal);
+  const csvTopLevel = csvRows?.filter(
+    (r) => r.isSummary && !r.isTotal && r.row !== ""
+  );
+  const csvTotals = csvTotalRow
+    ? csvTotalRow
+    : csvTopLevel && csvTopLevel.length > 0
+      ? {
+          csMD: csvTopLevel.reduce((s, r) => s + r.csMD, 0),
+          devMD: csvTopLevel.reduce((s, r) => s + r.devMD, 0),
+          arMD: csvTopLevel.reduce((s, r) => s + r.arMD, 0),
+          qaMD: csvTopLevel.reduce((s, r) => s + r.qaMD, 0),
+          pmMD: csvTopLevel.reduce((s, r) => s + r.pmMD, 0),
+          totalMD: csvTopLevel.reduce((s, r) => s + r.totalMD, 0),
+          cost: csvTopLevel.reduce((s, r) => s + r.cost, 0),
+        }
+      : null;
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500/25 border-t-indigo-600 mx-auto" />
-        <p className="mt-4 text-slate-400">{status}</p>
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <Link
+        href="/"
+        className="mb-8 inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to home
+      </Link>
+
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            Practice Library
+          </h1>
+          <p className="mt-2 text-slate-400">
+            Add real project data from past estimations to calibrate AI
+            estimates closer to your practice standards.
+          </p>
+        </div>
+        {!showForm && !csvRows && (
+          <div className="flex gap-2">
+            {practices.length > 0 && (
+              <button
+                onClick={handleExportSeed}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5"
+              >
+                <Download className="h-4 w-4" />
+                Export Seed
+              </button>
+            )}
+            <button
+              onClick={() => csvInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5"
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </button>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleCsvSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:brightness-110"
+            >
+              <Plus className="h-4 w-4" />
+              Add Project
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* CSV Preview */}
+      {csvRows && (
+        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.03] p-6 shadow-sm backdrop-blur-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-violet-400" />
+              <h2 className="text-lg font-semibold text-white">
+                Import Project from CSV
+              </h2>
+            </div>
+            <button
+              onClick={handleCsvCancel}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Project name input */}
+          <div className="mb-4">
+            <label className={labelClass}>Project Name *</label>
+            <input
+              type="text"
+              value={csvProjectName}
+              onChange={(e) => setCsvProjectName(e.target.value)}
+              placeholder="Enter a name for this project"
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              {csvFileName} — {csvRows.filter((r) => !r.isTotal).length} line
+              items will be saved as one project record.
+            </p>
+          </div>
+
+          {/* Line items table */}
+          <div className="max-h-96 overflow-auto rounded-lg border border-white/[0.05]">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-white/5">
+                <tr className="border-b border-white/[0.06] text-xs font-medium uppercase text-slate-400">
+                  <th className="px-3 py-2">Row</th>
+                  <th className="px-3 py-2">Feature</th>
+                  <th className="px-3 py-2 text-right">CS</th>
+                  <th className="px-3 py-2 text-right">Dev</th>
+                  <th className="px-3 py-2 text-right">AR</th>
+                  <th className="px-3 py-2 text-right">QA</th>
+                  <th className="px-3 py-2 text-right">PM</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-right">Cost</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {csvRows.map((row, i) => (
+                  <tr
+                    key={i}
+                    className={
+                      row.isTotal
+                        ? "bg-white/10 font-bold text-white"
+                        : row.isSummary
+                          ? "bg-white/5 font-semibold text-slate-200"
+                          : "text-slate-300"
+                    }
+                  >
+                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-400 text-xs">
+                      {row.row}
+                    </td>
+                    <td
+                      className={`px-3 py-1.5 max-w-[220px] truncate ${!row.isSummary && !row.isTotal ? "pl-6" : ""}`}
+                    >
+                      {row.feature}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      {row.csMD > 0 ? row.csMD : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      {row.devMD > 0 ? row.devMD : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      {row.arMD > 0 ? row.arMD : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      {row.qaMD > 0 ? row.qaMD : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      {row.pmMD > 0 ? row.pmMD : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap font-medium">
+                      {row.totalMD > 0 ? row.totalMD : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      {row.cost > 0
+                        ? `$${row.cost.toLocaleString()}`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Aggregated totals summary */}
+          {csvTotals && (
+            <div className="mt-3 rounded-lg border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-200">
+              <span className="font-medium">Project totals: </span>
+              {csvTotals.csMD > 0 && <span>CS {csvTotals.csMD} </span>}
+              {csvTotals.devMD > 0 && <span>Dev {csvTotals.devMD} </span>}
+              {csvTotals.arMD > 0 && <span>AR {csvTotals.arMD} </span>}
+              {csvTotals.qaMD > 0 && <span>QA {csvTotals.qaMD} </span>}
+              {csvTotals.pmMD > 0 && <span>PM {csvTotals.pmMD} </span>}
+              <span className="font-semibold">
+                = {csvTotals.totalMD} MDs
+              </span>
+              {csvTotals.cost > 0 && (
+                <span className="ml-2">
+                  ({`$${csvTotals.cost.toLocaleString()}`})
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 rounded-lg border border-violet-500/15 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
+            This CSV will be imported as a single project reference. PM% and
+            QA% will be auto-calculated from role man-days (1 MD = 8 hours).
+          </div>
+
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              onClick={handleCsvCancel}
+              disabled={csvLoading}
+              className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCsvImport}
+              disabled={!csvProjectName.trim() || csvLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
+            >
+              {csvLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating Estimation…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  Import &amp; Generate Estimation
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Form */}
+      {showForm && (
+        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.03] p-6 shadow-sm backdrop-blur-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">
+              {editingId ? "Edit Project" : "Add Historical Project"}
+            </h2>
+            <button
+              onClick={handleCancel}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Project Name *</label>
+              <input
+                type="text"
+                value={form.projectName}
+                onChange={(e) =>
+                  setForm({ ...form, projectName: e.target.value })
+                }
+                placeholder="e.g., Customer Portal Redesign"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Project Type</label>
+              <select
+                value={form.projectType}
+                onChange={(e) =>
+                  setForm({ ...form, projectType: e.target.value })
+                }
+                className={inputClass}
+              >
+                <option value="">Select type</option>
+                {PROJECT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Description *</label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                placeholder="Brief description of the project scope and what was delivered..."
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Actual Timeline</label>
+              <input
+                type="text"
+                value={form.actualTimeline}
+                onChange={(e) =>
+                  setForm({ ...form, actualTimeline: e.target.value })
+                }
+                placeholder="e.g., 6 months, 24 weeks"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Actual Cost (USD)</label>
+              <input
+                type="number"
+                value={form.actualCost || ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    actualCost: parseFloat(e.target.value) || 0,
+                  })
+                }
+                placeholder="150000"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Team Size</label>
+              <input
+                type="number"
+                value={form.teamSize || ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    teamSize: parseInt(e.target.value) || 0,
+                  })
+                }
+                placeholder="8"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Tech Stack</label>
+              <input
+                type="text"
+                value={form.techStack}
+                onChange={(e) =>
+                  setForm({ ...form, techStack: e.target.value })
+                }
+                placeholder="e.g., React, Node.js, PostgreSQL"
+                className={inputClass}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Lessons Learned</label>
+              <textarea
+                rows={3}
+                value={form.lessonsLearned}
+                onChange={(e) =>
+                  setForm({ ...form, lessonsLearned: e.target.value })
+                }
+                placeholder="Key takeaways, what was underestimated, what worked well..."
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              onClick={handleCancel}
+              className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!form.projectName || !form.description}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_20px_rgba(139,92,246,0.25)] px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
+            >
+              <Save className="h-4 w-4" />
+              {editingId ? "Update" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      {practices.length === 0 && !showForm && !csvRows ? (
+        <div className="mt-12 flex flex-col items-center text-center">
+          <div className="rounded-full bg-white/10 p-4">
+            <BookOpen className="h-8 w-8 text-slate-500" />
+          </div>
+          <h3 className="mt-4 font-medium text-white">
+            No practice data yet
+          </h3>
+          <p className="mt-1 text-sm text-slate-400">
+            Add historical project data to help calibrate future estimations.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-6 space-y-3">
+          {practices.map((p) => (
+            <div
+              key={p.id}
+              className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 shadow-sm backdrop-blur-sm"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-semibold text-white">
+                    {p.projectName}
+                  </h3>
+                  {p.projectType && (
+                    <span className="mt-1 inline-block rounded-full bg-violet-500/10 px-2.5 py-0.5 text-xs font-medium text-violet-300">
+                      {p.projectType}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleOpenEstimation(p)}
+                    disabled={!p.fullEstimation}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      p.fullEstimation
+                        ? "text-violet-400 hover:bg-violet-500/10"
+                        : "text-slate-600 cursor-not-allowed"
+                    }`}
+                    title={p.fullEstimation ? "Open full estimation" : "No full estimation data (saved before this feature)"}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open
+                  </button>
+                  <button
+                    onClick={() => handleEdit(p)}
+                    className="rounded-lg p-2 text-slate-500 hover:bg-white/10 hover:text-slate-300"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="rounded-lg p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-slate-400 whitespace-pre-line line-clamp-4">
+                {p.description}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-400">
+                {p.actualTimeline && <span>Timeline: {p.actualTimeline}</span>}
+                {p.actualCost > 0 && (
+                  <span>Cost: ${p.actualCost.toLocaleString()}</span>
+                )}
+                {p.teamSize > 0 && <span>Team: {p.teamSize} people</span>}
+                {p.techStack && <span>Stack: {p.techStack}</span>}
+                {p.totalMD != null && p.totalMD > 0 && (
+                  <span>Total: {p.totalMD} MDs</span>
+                )}
+                {p.csMD != null && <span>CS: {p.csMD} MD</span>}
+                {p.devMD != null && <span>Dev: {p.devMD} MD</span>}
+                {p.arMD != null && <span>AR: {p.arMD} MD</span>}
+                {p.qaMD != null && <span>QA: {p.qaMD} MD</span>}
+                {p.pmMD != null && <span>PM: {p.pmMD} MD</span>}
+              </div>
+              {p.lessonsLearned && (
+                <p className="mt-2 text-sm italic text-slate-400">
+                  &ldquo;{p.lessonsLearned}&rdquo;
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -8,7 +8,8 @@ import StepIndicator from "@/components/StepIndicator";
 import { nextWeekYMD } from "@/components/DatePicker";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
 import LoadingEstimation from "@/components/LoadingEstimation";
-import { QUESTIONNAIRE_STEPS, DEFAULT_RATES } from "@/lib/constants";
+import { QUESTIONNAIRE_STEPS, DEFAULT_RATES, PRACTICE_SEED_URL } from "@/lib/constants";
+import { derivePracticeRates } from "@/lib/parse-csv";
 import { QuestionnaireAnswers, PracticeEstimation, RateConfig } from "@/lib/types";
 
 const INITIAL_ANSWERS: QuestionnaireAnswers = {
@@ -44,6 +45,29 @@ export default function QuestionnairePage() {
       } catch {
         // ignore
       }
+    } else {
+      // No local data — load default practice library from seed
+      fetch(PRACTICE_SEED_URL)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((seed: PracticeEstimation[]) => {
+          if (seed.length > 0) {
+            setPractices(seed);
+            localStorage.setItem("practice-estimations", JSON.stringify(seed));
+            const derived = derivePracticeRates(seed);
+            if (derived) {
+              localStorage.setItem("practice-rates", JSON.stringify(derived));
+              setAnswers((prev) => ({
+                ...prev,
+                rateConfig: {
+                  ...prev.rateConfig,
+                  pmPercent: derived.pmPercent,
+                  qaPercent: derived.qaPercent,
+                },
+              }));
+            }
+          }
+        })
+        .catch(() => {});
     }
 
     // Load practice-derived rates if available

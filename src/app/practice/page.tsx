@@ -18,7 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { PracticeEstimation, RateConfig } from "@/lib/types";
-import { DEFAULT_RATES } from "@/lib/constants";
+import { DEFAULT_RATES, PRACTICE_SEED_URL } from "@/lib/constants";
 import { PROJECT_TYPES } from "@/lib/constants";
 import {
   parseCSVRows,
@@ -60,10 +60,23 @@ export default function PracticePage() {
     if (stored) {
       try {
         setPractices(JSON.parse(stored));
+        return;
       } catch {
-        // ignore
+        // ignore, fall through to seed
       }
     }
+    // No local data — load default practice library from seed
+    fetch(PRACTICE_SEED_URL)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((seed: PracticeEstimation[]) => {
+        if (seed.length > 0) {
+          setPractices(seed);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+          const derived = derivePracticeRates(seed);
+          if (derived) localStorage.setItem(RATES_KEY, JSON.stringify(derived));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const save = (updated: PracticeEstimation[]) => {

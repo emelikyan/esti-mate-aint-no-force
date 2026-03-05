@@ -1,4 +1,4 @@
-import { PDFParse } from "pdf-parse";
+import { extractText, getDocumentProxy } from "unpdf";
 import mammoth from "mammoth";
 
 export async function parseDocument(
@@ -7,10 +7,9 @@ export async function parseDocument(
 ): Promise<string> {
   switch (mimeType) {
     case "application/pdf": {
-      const parser = new PDFParse({ data: new Uint8Array(buffer) });
-      const result = await parser.getText();
-      await parser.destroy();
-      return result.text;
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      const { text } = await extractText(pdf, { mergePages: true });
+      return text ?? "";
     }
     case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
       const result = await mammoth.extractRawText({ buffer });

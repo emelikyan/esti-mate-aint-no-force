@@ -12,7 +12,9 @@ import {
   DEFAULT_RATES,
   CURRENCY_OPTIONS,
   ROLE_LABELS,
+  PRACTICE_SEED_URL,
 } from "@/lib/constants";
+import { derivePracticeRates } from "@/lib/parse-csv";
 
 export default function UploadPage() {
   const router = useRouter();
@@ -31,6 +33,26 @@ export default function UploadPage() {
       } catch {
         // ignore
       }
+    } else {
+      // No local data — load default practice library from seed
+      fetch(PRACTICE_SEED_URL)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((seed: PracticeEstimation[]) => {
+          if (seed.length > 0) {
+            setPractices(seed);
+            localStorage.setItem("practice-estimations", JSON.stringify(seed));
+            const derived = derivePracticeRates(seed);
+            if (derived) {
+              localStorage.setItem("practice-rates", JSON.stringify(derived));
+              setRateConfig((prev) => ({
+                ...prev,
+                pmPercent: derived.pmPercent,
+                qaPercent: derived.qaPercent,
+              }));
+            }
+          }
+        })
+        .catch(() => {});
     }
 
     // Load practice-derived rates if available
@@ -74,10 +96,28 @@ export default function UploadPage() {
         body: formData,
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      if (text.trimStart().startsWith("<")) {
+        throw new Error(
+          "Server returned an error page. Check that ANTHROPIC_API_KEY is set in .env.local and the dev server is running, or try the questionnaire flow instead."
+        );
+      }
+      let data: { estimation?: unknown; error?: string; detail?: string };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid response from server. Please try again.");
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to generate estimation");
+        const msg = data.detail
+          ? `${data.error || "Error"}: ${data.detail}`
+          : data.error || "Failed to generate estimation";
+        throw new Error(msg);
+      }
+
+      if (!data.estimation) {
+        throw new Error("No estimation in response. Please try again.");
       }
 
       sessionStorage.setItem("estimation", JSON.stringify(data.estimation));
