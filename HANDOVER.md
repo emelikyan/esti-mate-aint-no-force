@@ -49,6 +49,7 @@ src/
 │   ├── CustomComponentsList.tsx  # Special components with complexity
 │   ├── AssumptionsLimitations.tsx # Two-column assumptions/limitations
 │   ├── WorkshopsModal.tsx        # Full-screen workshops list with export (CSV/TXT)
+│   ├── PresentationModal.tsx     # Convert to PPTX with branding presets
 │   ├── QuestionnaireForm.tsx     # Step-specific form renderer
 │   ├── FileUploader.tsx          # Drag-and-drop upload
 │   ├── LoadingEstimation.tsx     # Animated loading during AI generation
@@ -85,6 +86,7 @@ Results Page Actions:
   ├── Workshops            → POST /api/generate-workshops; opens full-screen WorkshopsModal
   ├── Override confidence / mark confirmed → local state + sessionStorage
   ├── Save to Practice → localStorage + fullEstimation JSON snapshot
+  ├── Convert to Presentation → opens PresentationModal; exports PPTX with branding
   ├── Export → CSV / XLSX / clipboard image / print
   └── Optimize Timeline → shifts phases to close idle gaps
 ```
@@ -98,6 +100,8 @@ Results Page Actions:
 | Current estimation | `sessionStorage` | `"estimation"` |
 | Practice library | `localStorage` | `"practice-estimations"` |
 | Derived practice rates | `localStorage` | `"practice-rates"` |
+| Presentation branding | `localStorage` | `"presentation-branding"` |
+| Presentation branding presets | `localStorage` | `"presentation-branding-presets"` |
 
 No database — everything is browser-local.
 
@@ -164,6 +168,16 @@ No database — everything is browser-local.
 - Workshop list → CSV, TXT
 - Full page → browser print
 
+### 10. Convert to Presentation
+- **Convert to Presentation** button in results page toolbar opens `PresentationModal`
+- Exports estimation as PPTX (PowerPoint) via `pptxgenjs` — title slide, summary, metrics, phases, cost breakdown, team, risks, deliverables, thank-you slide
+- **11 presentation styles:** consultative, aggressive, educational, storytelling, data-driven, demonstration, visionary, problem-agitation-solution, minimalist, interactive — each with distinct tone and layout
+- **Branding configuration:** primary color, secondary color, background color, font style, font color, company logo
+- **Branding presets:** built-in presets (Default, Violet Professional, Corporate Blue, Dark Slate, Emerald) plus user-saved presets
+- **Save current as preset:** save the current branding (colors, font, logo) with a custom name; presets persist in `localStorage`
+- **Select preset:** click any preset to apply it; delete saved presets via trash icon on hover
+- Branding and presets stored in `localStorage` (`presentation-branding`, `presentation-branding-presets`)
+
 ---
 
 ## Key Types (src/lib/types.ts)
@@ -223,16 +237,29 @@ PracticeEstimation {
 | `@anthropic-ai/sdk` | Claude API client |
 | `next` 16.1.6 | React framework |
 | `react` 19.2.3 | UI library |
-| `pdf-parse` | PDF text extraction (server-only) |
+| `unpdf` | PDF text extraction (server-only, Node.js compatible) |
 | `mammoth` | DOCX text extraction |
 | `xlsx` | Excel/CSV file generation |
 | `html2canvas` | Screenshot to clipboard |
 | `lucide-react` | UI icons |
 | `tailwindcss` v4 | Styling |
+| `pptxgenjs` | PowerPoint (PPTX) generation |
 
 ---
 
 ## Recent Changes (March 2026)
+
+### Convert to Presentation + Branding Presets
+- **Convert to Presentation** — results page toolbar button opens full-screen modal; exports estimation as PPTX with configurable branding
+- **PresentationModal** — 11 style options (consultative, aggressive, educational, etc.); branding: primary/secondary/background colors, font style, font color, company logo
+- **Branding presets** — built-in presets (Default, Violet Professional, Corporate Blue, Dark Slate, Emerald) + user-saved presets
+- **Save current as preset** — save current branding with custom name; stored in `localStorage` (`presentation-branding-presets`)
+- **Select preset** — click to apply; delete saved presets via trash icon
+- Storage: `presentation-branding` (active config), `presentation-branding-presets` (saved presets array)
+
+### Files (Presentation)
+- `src/components/PresentationModal.tsx` — modal UI, preset selection, branding form, PPTX export via pptxgenjs
+- `src/lib/constants.ts` — `PRESENTATION_STYLES`, `PRESENTATION_STYLE_THEMES`, `getDensityLimits`
 
 ### Open Estimations from Practice Library
 - `fullEstimation` field added to `PracticeEstimation` — stores serialized JSON of full `Estimation` object when saving from results page
